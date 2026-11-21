@@ -75,3 +75,7 @@ out/
 .env
 next-env.d.ts
 *.tsbuildinfo
+
+# Local project rules & legacy static archive (kept locally only)
+GEMINI.md
+archive/
