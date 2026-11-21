@@ -256,14 +256,14 @@
 ### FASE 8: Deployment & Peluncuran Produksi
 > *Tujuan: Merilis website ke domain publik.*
 
-- [ ] **Task 8.1: Setup Environment Production**
-  - [ ] Atur environment variables Supabase di platform hosting produksi.
-- [ ] **Task 8.2: Deploy & Build Verification ke Vercel**
-  - [ ] Hubungkan repositori GitHub (`Haerulanwar05/himatika_web`) dengan Vercel Dashboard.
-  - [ ] Pasang environment variables Supabase di Vercel Settings (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, opsional `CRON_SECRET`).
+- [x] **Task 8.1: Setup Environment Production**
+  - [x] Atur environment variables Supabase di platform hosting produksi.
+- [x] **Task 8.2: Deploy & Build Verification ke Vercel**
+  - [x] Hubungkan repositori GitHub (`Haerulanwar05/himatika_web`) dengan Vercel Dashboard.
+  - [x] Pasang environment variables Supabase di Vercel Settings (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, opsional `CRON_SECRET`).
   - [x] Tambahkan endpoint `/api/keep-alive` (`await connection()` + query ringan ke `divisions`) & `vercel.json` cron (`0 0 */3 * *`) agar project Supabase Free Plan tidak terkena auto-pause 7 hari.
   - [x] Jalankan `npm run build` lokal untuk verifikasi pra-deploy (termasuk [`src/lib/site-url.ts`](file:///C:/Users/Haerul/himatika_web/src/lib/site-url.ts) otomatis membaca `VERCEL_PROJECT_PRODUCTION_URL`).
-  - [ ] Verifikasi deployment sukses di jaringan Edge Vercel.
+  - [x] Verifikasi deployment sukses di jaringan Edge Vercel.
 - [ ] **Task 8.3: Serah Terima & Dokumentasi Penggunaan**
   - [ ] Uji coba login akun bendahara pertama kali di server produksi.
   - [ ] Selesai!
