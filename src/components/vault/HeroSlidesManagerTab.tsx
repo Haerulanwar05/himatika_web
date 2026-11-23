@@ -25,6 +25,7 @@ import {
   upsertHeroSlide,
 } from "@/actions/hero.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { HeroSlideRow } from "@/types/database.types";
 
@@ -103,24 +104,47 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
       "is_active"
     ) as HTMLInputElement | null;
     formData.set("is_active", String(Boolean(activeCheckbox?.checked)));
-
-    if (selectedFile) {
-      formData.set("image_file", selectedFile);
-    } else {
-      formData.delete("image_file");
-    }
+    formData.delete("image_file");
 
     setSubmitting(true);
     setFeedback(null);
-    const res = await upsertHeroSlide(formData);
-    setSubmitting(false);
 
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      closeModal();
-      refreshInBackground();
-    } else {
-      setFeedback({ type: "error", text: res.message });
+    try {
+      if (selectedFile) {
+        const titleStr = String(formData.get("title") ?? "slide");
+        const uploadOutcome = await uploadFilesFromClient({
+          files: [selectedFile],
+          bucket: "public-assets",
+          folder: "hero",
+          prefixBuilder: () => titleStr || "slide",
+        });
+
+        if (uploadOutcome.usedDirectUpload && uploadOutcome.uploaded[0]?.url) {
+          formData.set("uploaded_image_url", uploadOutcome.uploaded[0].url);
+          formData.set("uploaded_asset_path", uploadOutcome.uploaded[0].path);
+        } else if (uploadOutcome.compressedFiles[0]) {
+          formData.set("image_file", uploadOutcome.compressedFiles[0]);
+        }
+      }
+
+      const res = await upsertHeroSlide(formData);
+      if (res.success) {
+        setFeedback({ type: "success", text: res.message });
+        closeModal();
+        refreshInBackground();
+      } else {
+        setFeedback({ type: "error", text: res.message });
+      }
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text:
+          err instanceof Error
+            ? err.message
+            : "Gagal mengunggah atau menyimpan slide. Silakan coba lagi.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 

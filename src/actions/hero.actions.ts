@@ -5,6 +5,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canManageProker, getCurrentPengurus } from "@/lib/auth/session";
 import {
+  filterTrustedStoragePaths,
+  isTrustedPublicAssetUrl,
   removeUnusedPublicAssets,
   uploadPublicAsset,
 } from "@/lib/supabase/storage";
@@ -101,16 +103,26 @@ export async function upsertHeroSlide(formData: FormData): Promise<ActionResult>
 
   const imageFile = formData.get("image_file");
   const hasNewFile = imageFile instanceof File && imageFile.size > 0;
+  const rawUploadedUrl = formData.get("uploaded_image_url");
+  const uploadedUrl =
+    typeof rawUploadedUrl === "string" &&
+    isTrustedPublicAssetUrl(rawUploadedUrl, "hero")
+      ? rawUploadedUrl
+      : null;
 
-  if (!isEditing && !hasNewFile) {
+  if (!isEditing && !hasNewFile && !uploadedUrl) {
     return {
       success: false,
       message: "Foto latar slide wajib diunggah.",
     };
   }
 
-  let nextImageUrl = existingImageUrl ?? "";
-  let newlyUploadedPath: string | null = null;
+  let nextImageUrl = uploadedUrl ?? existingImageUrl ?? "";
+  let newlyUploadedPath: string | null =
+    uploadedUrl
+      ? filterTrustedStoragePaths([formData.get("uploaded_asset_path")], "hero")[0] ??
+        null
+      : null;
 
   if (hasNewFile) {
     const uploadRes = await uploadPublicAsset(

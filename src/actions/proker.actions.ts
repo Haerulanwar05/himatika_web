@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageProker, getCurrentPengurus } from "@/lib/auth/session";
 import { normalizeWhatsappUrl } from "@/lib/utils";
 import {
+  filterTrustedStoragePaths,
+  isTrustedPublicAssetUrl,
   removeUnusedPublicAssets,
   uploadPublicAsset,
 } from "@/lib/supabase/storage";
@@ -44,6 +46,9 @@ const prokerSchema = z.object({
   contact_phone: z.string().trim().max(160).optional(),
   existing_cover_url: z.string().trim().optional(),
   existing_gallery_json: z.string().trim().optional(),
+  uploaded_cover_url: z.string().trim().optional(),
+  uploaded_gallery_urls_json: z.string().trim().optional(),
+  uploaded_asset_paths_json: z.string().trim().optional(),
   remove_cover: z.boolean().optional(),
   is_featured: z.boolean(),
   is_white_background: z.boolean(),
@@ -93,6 +98,11 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     contact_phone: formData.get("contact_phone") || "",
     existing_cover_url: formData.get("existing_cover_url") || "",
     existing_gallery_json: formData.get("existing_gallery_json") || "[]",
+    uploaded_cover_url: formData.get("uploaded_cover_url") || "",
+    uploaded_gallery_urls_json:
+      formData.get("uploaded_gallery_urls_json") || "[]",
+    uploaded_asset_paths_json:
+      formData.get("uploaded_asset_paths_json") || "[]",
     remove_cover: formData.get("remove_cover") === "true",
     is_featured: formData.get("is_featured") === "true",
     is_white_background: formData.get("is_white_background") === "true",
@@ -121,10 +131,24 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     existingRow = data;
   }
 
-  const newlyUploadedPaths: string[] = [];
+  let preUploadedPaths: string[] = [];
+  try {
+    preUploadedPaths = filterTrustedStoragePaths(
+      JSON.parse(parsed.data.uploaded_asset_paths_json || "[]"),
+      "prokers"
+    );
+  } catch {
+    preUploadedPaths = [];
+  }
+
+  const newlyUploadedPaths: string[] = [...preUploadedPaths];
   let coverUrl: string | null = parsed.data.remove_cover
     ? null
     : parsed.data.existing_cover_url || null;
+
+  if (isTrustedPublicAssetUrl(parsed.data.uploaded_cover_url, "prokers")) {
+    coverUrl = parsed.data.uploaded_cover_url;
+  }
 
   const coverFile = formData.get("cover_file");
   if (coverFile instanceof File && coverFile.size > 0) {
@@ -135,13 +159,16 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
       parsed.data.slug
     );
     if (uploadRes.error || !uploadRes.url) {
+      if (newlyUploadedPaths.length > 0) {
+        await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
+      }
       return { success: false, message: uploadRes.error ?? "Gagal mengunggah poster." };
     }
     if (uploadRes.path) newlyUploadedPaths.push(uploadRes.path);
     coverUrl = uploadRes.url;
   }
 
-  // Preserve remaining gallery URLs and append newly uploaded gallery files
+  // Preserve remaining gallery URLs and append direct-uploaded or multipart gallery files
   let preservedGallery: string[] = [];
   try {
     const rawGallery = JSON.parse(parsed.data.existing_gallery_json || "[]");
@@ -154,28 +181,51 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     preservedGallery = [];
   }
 
-  const uploadedGalleryUrls: string[] = [];
-  const rawGalleryFiles = formData.getAll("gallery_files");
-  for (const entry of rawGalleryFiles) {
-    if (entry instanceof File && entry.size > 0) {
-      const uploadRes = await uploadPublicAsset(
-        supabase,
-        entry,
-        "prokers",
-        `${parsed.data.slug}-gal`
+  let preUploadedGalleryUrls: string[] = [];
+  try {
+    const rawUploadedGallery = JSON.parse(
+      parsed.data.uploaded_gallery_urls_json || "[]"
+    );
+    if (Array.isArray(rawUploadedGallery)) {
+      preUploadedGalleryUrls = rawUploadedGallery.filter((item): item is string =>
+        isTrustedPublicAssetUrl(item, "prokers")
       );
-      if (uploadRes.error) {
-        if (newlyUploadedPaths.length > 0) {
-          await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
-        }
-        return { success: false, message: uploadRes.error };
-      }
-      if (uploadRes.path) newlyUploadedPaths.push(uploadRes.path);
-      if (uploadRes.url) {
-        uploadedGalleryUrls.push(uploadRes.url);
-      }
     }
+  } catch {
+    preUploadedGalleryUrls = [];
   }
+
+  const rawGalleryFiles = formData
+    .getAll("gallery_files")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+
+  const fileUploadResults = await Promise.all(
+    rawGalleryFiles.map((entry) =>
+      uploadPublicAsset(supabase, entry, "prokers", `${parsed.data.slug}-gal`)
+    )
+  );
+
+  for (const res of fileUploadResults) {
+    if (res.path) newlyUploadedPaths.push(res.path);
+  }
+
+  const failedFileUpload = fileUploadResults.find((res) => res.error);
+  if (failedFileUpload) {
+    if (newlyUploadedPaths.length > 0) {
+      await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
+    }
+    return {
+      success: false,
+      message: failedFileUpload.error ?? "Gagal mengunggah foto galeri.",
+    };
+  }
+
+  const uploadedGalleryUrls = [
+    ...preUploadedGalleryUrls,
+    ...fileUploadResults
+      .map((res) => res.url)
+      .filter((url): url is string => Boolean(url)),
+  ];
 
   const combinedGallery = Array.from(
     new Set([...preservedGallery, ...uploadedGalleryUrls])
@@ -240,9 +290,13 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     if (newlyUploadedPaths.length > 0) {
       await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
     }
+    const isDuplicateSlug =
+      error.code === "23505" || error.message.toLowerCase().includes("duplicate");
     return {
       success: false,
-      message: `Gagal menyimpan program kerja: ${error.message}`,
+      message: isDuplicateSlug
+        ? "Slug URL sudah digunakan program kerja lain. Ubah Slug URL agar unik."
+        : `Gagal menyimpan program kerja: ${error.message}`,
     };
   }
 

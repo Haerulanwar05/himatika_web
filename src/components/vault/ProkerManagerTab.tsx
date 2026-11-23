@@ -18,8 +18,17 @@ import {
 } from "@/actions/proker.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { ProkerStatus, WorkProgramRow } from "@/types/database.types";
+
+function slugifyProkerTitle(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
 
 interface ProkerManagerTabProps {
   prokers: WorkProgramRow[];
@@ -62,12 +71,17 @@ export function ProkerManagerTab({
     patchItemOptimistic,
   } = useOptimisticVaultItems(prokers);
   const [editing, setEditing] = useState<Partial<WorkProgramRow> | null>(null);
+  const [titleInput, setTitleInput] = useState("");
+  const [slugInput, setSlugInput] = useState("");
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverObjectUrl, setCoverObjectUrl] = useState<string | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
   const [galleryDraft, setGalleryDraft] = useState<string[]>([]);
   const [newGalleryFiles, setNewGalleryFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState("MENYIMPAN...");
+  const [modalError, setModalError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     text: string;
@@ -100,6 +114,10 @@ export function ProkerManagerTab({
     setCoverRemoved(false);
     setNewGalleryFiles([]);
     setGalleryDraft(proker.gallery_images ?? []);
+    setTitleInput(proker.title);
+    setSlugInput(proker.slug);
+    setSlugManuallyEdited(true);
+    setModalError(null);
     setEditing(proker);
   };
 
@@ -108,6 +126,10 @@ export function ProkerManagerTab({
     setCoverRemoved(false);
     setNewGalleryFiles([]);
     setGalleryDraft([]);
+    setTitleInput("");
+    setSlugInput("");
+    setSlugManuallyEdited(false);
+    setModalError(null);
     setEditing({
       id: "",
       highlight_number: String(visibleProkers.length + 1).padStart(2, "0"),
@@ -132,33 +154,115 @@ export function ProkerManagerTab({
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSubmitting(true);
+    setModalError(null);
     setFeedback(null);
 
     const formData = new FormData(e.currentTarget);
-    if (coverFile) {
-      formData.set("cover_file", coverFile);
+    const cleanedSlug = slugInput.trim().replace(/^-+|-+$/g, "");
+    const cleanedTitle = titleInput.trim();
+    const shortDesc = String(formData.get("short_desc") ?? "").trim();
+
+    if (cleanedTitle.length < 3) {
+      setModalError("Judul program kerja minimal 3 karakter.");
+      return;
     }
+    if (cleanedSlug.length < 3 || !/^[a-z0-9-]+$/.test(cleanedSlug)) {
+      setModalError(
+        "Slug URL minimal 3 karakter dan hanya boleh huruf kecil, angka, serta tanda hubung (-)."
+      );
+      return;
+    }
+    if (shortDesc.length < 10) {
+      setModalError("Ringkasan singkat minimal 10 karakter.");
+      return;
+    }
+
+    formData.set("title", cleanedTitle);
+    formData.set("slug", cleanedSlug);
     formData.set("remove_cover", String(coverRemoved && !coverFile));
     formData.set("existing_gallery_json", JSON.stringify(galleryDraft));
-    for (const file of newGalleryFiles) {
-      formData.append("gallery_files", file);
-    }
+    formData.delete("cover_file");
+    formData.delete("gallery_files");
 
-    const res = await upsertWorkProgram(formData);
-    setSubmitting(false);
-    setFeedback({
-      type: res.success ? "success" : "error",
-      text: res.message,
-    });
+    setSubmitting(true);
+    setSubmitPhase(
+      coverFile || newGalleryFiles.length > 0
+        ? "MENGUNGGAH FOTO..."
+        : "MENYIMPAN..."
+    );
 
-    if (res.success) {
+    try {
+      const filesToUpload: File[] = [];
+      const hasCover = Boolean(coverFile);
+      if (coverFile) filesToUpload.push(coverFile);
+      filesToUpload.push(...newGalleryFiles);
+
+      if (filesToUpload.length > 0) {
+        const uploadOutcome = await uploadFilesFromClient({
+          files: filesToUpload,
+          bucket: "public-assets",
+          folder: "prokers",
+          prefixBuilder: (_file, idx) =>
+            hasCover && idx === 0 ? cleanedSlug : `${cleanedSlug}-gal`,
+        });
+
+        if (uploadOutcome.usedDirectUpload) {
+          const uploadedUrls = uploadOutcome.uploaded.map((u) => u.url ?? "");
+          const uploadedPaths = uploadOutcome.uploaded.map((u) => u.path);
+
+          if (hasCover) {
+            formData.set("uploaded_cover_url", uploadedUrls[0] ?? "");
+            formData.set(
+              "uploaded_gallery_urls_json",
+              JSON.stringify(uploadedUrls.slice(1).filter(Boolean))
+            );
+          } else {
+            formData.set(
+              "uploaded_gallery_urls_json",
+              JSON.stringify(uploadedUrls.filter(Boolean))
+            );
+          }
+          formData.set(
+            "uploaded_asset_paths_json",
+            JSON.stringify(uploadedPaths)
+          );
+        } else {
+          if (hasCover && uploadOutcome.compressedFiles[0]) {
+            formData.set("cover_file", uploadOutcome.compressedFiles[0]);
+          }
+          const galleryFallback = hasCover
+            ? uploadOutcome.compressedFiles.slice(1)
+            : uploadOutcome.compressedFiles;
+          for (const file of galleryFallback) {
+            formData.append("gallery_files", file);
+          }
+        }
+      }
+
+      setSubmitPhase("MENYIMPAN DATA...");
+      const res = await upsertWorkProgram(formData);
+
+      if (!res.success) {
+        setModalError(res.message);
+        return;
+      }
+
+      setFeedback({ type: "success", text: res.message });
       setEditing(null);
       updateSelectedCoverFile(null);
       setCoverRemoved(false);
       setNewGalleryFiles([]);
       setGalleryDraft([]);
       refreshInBackground();
+    } catch (err) {
+      setModalError(
+        err instanceof Error
+          ? err.message
+          : "Terjadi gangguan jaringan atau ukuran berkas terlalu besar saat menyimpan. Silakan coba lagi."
+      );
+    } finally {
+      setSubmitting(false);
+      setSubmitPhase("MENYIMPAN...");
     }
   };
 
@@ -352,7 +456,14 @@ export function ProkerManagerTab({
                   <input
                     name="title"
                     required
-                    defaultValue={editing.title ?? ""}
+                    value={titleInput}
+                    onChange={(e) => {
+                      const nextTitle = e.target.value;
+                      setTitleInput(nextTitle);
+                      if (!slugManuallyEdited) {
+                        setSlugInput(slugifyProkerTitle(nextTitle));
+                      }
+                    }}
                     className="w-full bg-canvas border border-hairline px-3 py-2 font-sans text-sm text-main outline-none"
                   />
                 </div>
@@ -366,7 +477,16 @@ export function ProkerManagerTab({
                   <input
                     name="slug"
                     required
-                    defaultValue={editing.slug ?? ""}
+                    value={slugInput}
+                    onChange={(e) => {
+                      setSlugManuallyEdited(true);
+                      setSlugInput(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]+/g, "-")
+                          .replace(/^-+/, "")
+                      );
+                    }}
                     placeholder="contoh: tech-workshop-2026"
                     className="w-full bg-canvas border border-hairline px-3 py-2 font-mono text-xs text-main outline-none"
                   />
@@ -725,11 +845,18 @@ export function ProkerManagerTab({
                 />
               </div>
 
+              {modalError && (
+                <div className="p-3 border border-red-500/40 bg-red-500/10 font-mono text-xs text-red-300">
+                  {modalError}
+                </div>
+              )}
+
               <div className="pt-3 border-t border-hairline flex justify-end gap-3">
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => setEditing(null)}
-                  className="px-4 py-2.5 border border-hairline bg-canvas text-secondary font-mono text-xs cursor-pointer"
+                  className="px-4 py-2.5 border border-hairline bg-canvas text-secondary font-mono text-xs cursor-pointer disabled:opacity-50"
                 >
                   BATAL
                 </button>
@@ -739,7 +866,7 @@ export function ProkerManagerTab({
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-semibold disabled:opacity-50 cursor-pointer"
                 >
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{submitting ? "MENYIMPAN..." : "SIMPAN PROKER"}</span>
+                  <span>{submitting ? submitPhase : "SIMPAN PROKER"}</span>
                 </button>
               </div>
             </form>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Edit3, X, Loader2, Upload, RotateCcw, Plus, Trash2 } from "lucide-react";
 import { updateDivisionStructure } from "@/actions/org.actions";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 import type { DivisionRow } from "@/types/database.types";
 
@@ -71,6 +72,7 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
   const [leadersDraft, setLeadersDraft] = useState<LeaderDraft[]>([]);
   const [memberGroupsDraft, setMemberGroupsDraft] = useState<MemberGroupDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     text: string;
@@ -89,6 +91,7 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
 
   const openEditModal = (div: DivisionRow) => {
     revokeLeaderPreviews(leadersDraft);
+    setModalError(null);
     setEditing(div);
     setLeadersDraft(buildInitialLeaders(div));
     setMemberGroupsDraft(buildInitialMemberGroups(div));
@@ -96,6 +99,7 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
 
   const closeModal = () => {
     revokeLeaderPreviews(leadersDraft);
+    setModalError(null);
     setEditing(null);
     setLeadersDraft([]);
     setMemberGroupsDraft([]);
@@ -148,19 +152,13 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
     e.preventDefault();
     setSubmitting(true);
     setFeedback(null);
+    setModalError(null);
 
     const formData = new FormData(e.currentTarget);
 
     if (leadersDraft.length === 1) {
       formData.set("leader_title", leadersDraft[0].role);
     }
-
-    formData.set(
-      "leaders_json",
-      JSON.stringify(
-        leadersDraft.map(({ name, role, image }) => ({ name, role, image }))
-      )
-    );
 
     const cleanedMembers = memberGroupsDraft
       .map((item) => ({
@@ -171,23 +169,80 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
 
     formData.set("member_groups_json", JSON.stringify(cleanedMembers));
 
-    leadersDraft.forEach((leader, idx) => {
-      if (leader.file) {
-        formData.set(`leader_file_${idx}`, leader.file);
+    try {
+      let nextLeadersPayload = leadersDraft.map(({ name, role, image }) => ({
+        name,
+        role,
+        image,
+      }));
+
+      const fileEntries = leadersDraft
+        .map((leader, idx) => ({ idx, file: leader.file }))
+        .filter((entry): entry is { idx: number; file: File } =>
+          Boolean(entry.file)
+        );
+
+      if (fileEntries.length > 0) {
+        const divisionPrefix = (editing?.code || "divisi")
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, "-");
+
+        const uploadOutcome = await uploadFilesFromClient({
+          files: fileEntries.map((entry) => entry.file),
+          bucket: "public-assets",
+          folder: "divisions",
+          prefixBuilder: (_file, arrIdx) =>
+            `${divisionPrefix}-leader-${fileEntries[arrIdx]?.idx ?? arrIdx}`,
+        });
+
+        if (uploadOutcome.usedDirectUpload) {
+          const uploadedPaths: string[] = [];
+          fileEntries.forEach((entry, arrIdx) => {
+            const uploaded = uploadOutcome.uploaded[arrIdx];
+            if (uploaded?.url) {
+              nextLeadersPayload = nextLeadersPayload.map((item, idx) =>
+                idx === entry.idx ? { ...item, image: uploaded.url! } : item
+              );
+              uploadedPaths.push(uploaded.path);
+            }
+          });
+          formData.set(
+            "uploaded_asset_paths_json",
+            JSON.stringify(uploadedPaths)
+          );
+        } else {
+          fileEntries.forEach((entry, arrIdx) => {
+            const compressed = uploadOutcome.compressedFiles[arrIdx];
+            if (compressed) {
+              formData.set(`leader_file_${entry.idx}`, compressed);
+            }
+          });
+        }
       }
-    });
 
-    const res = await updateDivisionStructure(formData);
-    setSubmitting(false);
+      formData.set("leaders_json", JSON.stringify(nextLeadersPayload));
 
-    setFeedback({
-      type: res.success ? "success" : "error",
-      text: res.message,
-    });
+      const res = await updateDivisionStructure(formData);
 
-    if (res.success) {
+      if (!res.success) {
+        setModalError(res.message);
+        return;
+      }
+
+      setFeedback({
+        type: "success",
+        text: res.message,
+      });
       closeModal();
       router.refresh();
+    } catch (err) {
+      setModalError(
+        err instanceof Error
+          ? err.message
+          : "Terjadi gangguan jaringan atau ukuran foto terlalu besar saat menyimpan. Silakan coba lagi."
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -576,11 +631,18 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
                 )}
               </div>
 
+              {modalError && (
+                <div className="p-3 border border-red-500/40 bg-red-500/10 font-mono text-xs text-red-300">
+                  {modalError}
+                </div>
+              )}
+
               <div className="pt-3 border-t border-hairline flex justify-end gap-3">
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={closeModal}
-                  className="px-4 py-2.5 border border-hairline bg-canvas text-secondary font-mono text-xs cursor-pointer"
+                  className="px-4 py-2.5 border border-hairline bg-canvas text-secondary font-mono text-xs cursor-pointer disabled:opacity-50"
                 >
                   BATAL
                 </button>

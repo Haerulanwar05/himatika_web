@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/session";
 import { DEFAULT_SITE_ABOUT } from "@/lib/data/about";
 import {
+  filterTrustedStoragePaths,
+  isTrustedPublicAssetUrl,
   removeUnusedPublicAssets,
   uploadPublicAsset,
 } from "@/lib/supabase/storage";
@@ -117,12 +119,23 @@ export async function updateSiteAbout(formData: FormData): Promise<ActionResult>
     .eq("id", "default")
     .maybeSingle();
 
+  const rawUploadedLogoUrl = formData.get("uploaded_logo_url");
+  const uploadedLogoUrl =
+    typeof rawUploadedLogoUrl === "string" &&
+    isTrustedPublicAssetUrl(rawUploadedLogoUrl, "about")
+      ? rawUploadedLogoUrl
+      : null;
+
   let logoUrl = parsed.data.reset_logo
     ? DEFAULT_SITE_ABOUT.logoImageUrl
-    : parsed.data.existing_logo_url ||
+    : uploadedLogoUrl ||
+      parsed.data.existing_logo_url ||
       existingRow?.logo_image_url ||
       DEFAULT_SITE_ABOUT.logoImageUrl;
-  let newlyUploadedPath: string | null = null;
+  let newlyUploadedPath: string | null = uploadedLogoUrl
+    ? filterTrustedStoragePaths([formData.get("uploaded_logo_path")], "about")[0] ??
+      null
+    : null;
 
   const logoFile = formData.get("logo_file");
   if (logoFile instanceof File && logoFile.size > 0) {
@@ -283,16 +296,25 @@ export async function upsertAboutGalleryPhoto(
 
   const imageFile = formData.get("image_file");
   const hasNewFile = imageFile instanceof File && imageFile.size > 0;
+  const rawUploadedUrl = formData.get("uploaded_image_url");
+  const uploadedUrl =
+    typeof rawUploadedUrl === "string" &&
+    isTrustedPublicAssetUrl(rawUploadedUrl, "about")
+      ? rawUploadedUrl
+      : null;
 
-  if (!isEditing && !hasNewFile) {
+  if (!isEditing && !hasNewFile && !uploadedUrl) {
     return {
       success: false,
       message: "Berkas foto galeri wajib diunggah.",
     };
   }
 
-  let nextImageUrl = isEditing ? currentPhotos[existingIdx].imageUrl : "";
-  let newlyUploadedPath: string | null = null;
+  let nextImageUrl = uploadedUrl ?? (isEditing ? currentPhotos[existingIdx].imageUrl : "");
+  let newlyUploadedPath: string | null = uploadedUrl
+    ? filterTrustedStoragePaths([formData.get("uploaded_asset_path")], "about")[0] ??
+      null
+    : null;
 
   if (hasNewFile) {
     const uploadRes = await uploadPublicAsset(

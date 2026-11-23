@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Upload, Loader2, Trash2 } from "lucide-react";
 import { upsertFinanceTransaction } from "@/actions/finance.actions";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import type {
@@ -72,21 +73,47 @@ function TransactionFormDialog({
     setErrorMsg(null);
 
     const formData = new FormData(e.currentTarget);
-    if (selectedFile) {
-      formData.set("receipt", selectedFile);
+    formData.delete("receipt");
+
+    try {
+      if (selectedFile) {
+        const uploadOutcome = await uploadFilesFromClient({
+          files: [selectedFile],
+          bucket: "vault-receipts",
+          folder: "receipts",
+          prefixBuilder: () => "nota",
+          allowPdf: true,
+        });
+
+        if (uploadOutcome.usedDirectUpload) {
+          const uploaded = uploadOutcome.uploaded[0];
+          if (uploaded?.path) {
+            formData.set("uploaded_receipt_path", uploaded.path);
+          }
+        } else if (uploadOutcome.compressedFiles[0]) {
+          formData.set("receipt", uploadOutcome.compressedFiles[0]);
+        }
+      }
+
+      const res = await upsertFinanceTransaction(formData);
+
+      if (!res.success) {
+        setErrorMsg(res.message);
+        return;
+      }
+
+      setSelectedFile(null);
+      router.refresh();
+      onClose();
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Terjadi gangguan jaringan atau ukuran berkas nota terlalu besar saat menyimpan."
+      );
+    } finally {
+      setSubmitting(false);
     }
-
-    const res = await upsertFinanceTransaction(formData);
-    setSubmitting(false);
-
-    if (!res.success) {
-      setErrorMsg(res.message);
-      return;
-    }
-
-    setSelectedFile(null);
-    router.refresh();
-    onClose();
   };
 
   return (

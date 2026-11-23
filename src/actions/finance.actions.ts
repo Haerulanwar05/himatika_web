@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canManageFinance, getCurrentPengurus } from "@/lib/auth/session";
+import { filterTrustedStoragePaths } from "@/lib/supabase/storage";
 import type { ActionResult } from "@/types/finance.types";
 
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -101,8 +102,15 @@ export async function upsertFinanceTransaction(
   const supabase = await createClient();
   const isEdit = Boolean(parsed.data.id);
   const existingReceipt = parsed.data.existing_receipt_url || null;
-  let nextReceiptPath: string | null = parsed.data.remove_receipt ? null : existingReceipt;
-  let newlyUploadedPath: string | null = null;
+  const uploadedReceiptPath = filterTrustedStoragePaths(
+    [formData.get("uploaded_receipt_path")],
+    "receipts"
+  )[0] ?? null;
+
+  let nextReceiptPath: string | null = parsed.data.remove_receipt
+    ? null
+    : uploadedReceiptPath ?? existingReceipt;
+  let newlyUploadedPath: string | null = uploadedReceiptPath;
 
   const receiptFile = formData.get("receipt");
   if (receiptFile instanceof File && receiptFile.size > 0) {

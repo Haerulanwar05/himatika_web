@@ -69,6 +69,43 @@ export function extractPublicAssetPath(
 }
 
 /**
+ * Verify a client-supplied asset URL points to our Supabase project's `public-assets`
+ * bucket under the expected folder prefix (prevents untrusted URL/path injection).
+ */
+export function isTrustedPublicAssetUrl(
+  url: string | null | undefined,
+  expectedFolder: string
+): url is string {
+  if (!url || typeof url !== "string") return false;
+  const expectedBase = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  if (expectedBase && !url.startsWith(`${expectedBase}${PUBLIC_ASSETS_MARKER}`)) {
+    return false;
+  }
+  const path = extractPublicAssetPath(url);
+  return Boolean(
+    path &&
+      path.startsWith(`${expectedFolder}/`) &&
+      !path.includes("..")
+  );
+}
+
+/**
+ * Filter Storage relative paths down to valid safe paths inside `expectedFolder/`.
+ */
+export function filterTrustedStoragePaths(
+  paths: unknown,
+  expectedFolder: string
+): string[] {
+  if (!Array.isArray(paths)) return [];
+  return paths.filter(
+    (p): p is string =>
+      typeof p === "string" &&
+      p.startsWith(`${expectedFolder}/`) &&
+      !p.includes("..")
+  );
+}
+
+/**
  * Delete orphaned `public-assets` Storage objects when URLs are replaced or removed.
  */
 export async function removeUnusedPublicAssets(

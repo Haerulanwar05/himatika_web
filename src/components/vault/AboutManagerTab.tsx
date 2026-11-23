@@ -15,6 +15,7 @@ import {
   Upload,
 } from "lucide-react";
 import { updateSiteAbout } from "@/actions/about.actions";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { AboutGalleryPanel } from "./AboutGalleryPanel";
 import {
   DEFAULT_SITE_ABOUT,
@@ -118,18 +119,46 @@ export function AboutManagerTab({
         }))
       )
     );
-    if (logoFile) {
-      formData.set("logo_file", logoFile);
-    }
 
-    const res = await updateSiteAbout(formData);
-    setSubmitting(false);
-    setFeedback({ ok: res.success, msg: res.message });
+    try {
+      if (logoFile) {
+        const uploadOutcome = await uploadFilesFromClient({
+          files: [logoFile],
+          bucket: "public-assets",
+          folder: "about",
+          prefixBuilder: () => "logo",
+          compressOptions: { preservePng: true },
+        });
 
-    if (res.success) {
-      updateSelectedLogo(null);
-      setResetLogo(false);
-      router.refresh();
+        if (uploadOutcome.usedDirectUpload) {
+          const uploaded = uploadOutcome.uploaded[0];
+          if (uploaded?.url) {
+            formData.set("uploaded_logo_url", uploaded.url);
+            formData.set("uploaded_logo_path", uploaded.path);
+          }
+        } else if (uploadOutcome.compressedFiles[0]) {
+          formData.set("logo_file", uploadOutcome.compressedFiles[0]);
+        }
+      }
+
+      const res = await updateSiteAbout(formData);
+      setFeedback({ ok: res.success, msg: res.message });
+
+      if (res.success) {
+        updateSelectedLogo(null);
+        setResetLogo(false);
+        router.refresh();
+      }
+    } catch (err) {
+      setFeedback({
+        ok: false,
+        msg:
+          err instanceof Error
+            ? err.message
+            : "Terjadi gangguan jaringan atau ukuran logo terlalu besar saat menyimpan.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 

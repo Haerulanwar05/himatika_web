@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { canManageOrganization, getCurrentPengurus } from "@/lib/auth/session";
+import { filterTrustedStoragePaths } from "@/lib/supabase/storage";
 import type { ActionResult } from "@/types/finance.types";
 import type { DivisionLeaderJson } from "@/types/database.types";
 
@@ -162,6 +163,20 @@ export async function updateDivisionStructure(
 
   const divisionCode = currentDiv?.code || "divisi";
 
+  let preUploadedPaths: string[] = [];
+  const rawUploadedPaths = formData.get("uploaded_asset_paths_json");
+  if (typeof rawUploadedPaths === "string" && rawUploadedPaths.trim()) {
+    try {
+      preUploadedPaths = filterTrustedStoragePaths(
+        JSON.parse(rawUploadedPaths),
+        "divisions"
+      );
+    } catch {
+      preUploadedPaths = [];
+    }
+  }
+
+  const newlyUploadedPaths: string[] = [...preUploadedPaths];
   const updatedLeaders: DivisionLeaderJson[] = [];
   for (let i = 0; i < parsedLeaders.length; i++) {
     const leader = parsedLeaders[i];
@@ -176,6 +191,9 @@ export async function updateDivisionStructure(
         uploadedFile
       );
       if (uploadResult.error || !uploadResult.url) {
+        if (newlyUploadedPaths.length > 0) {
+          await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
+        }
         return {
           success: false,
           message: uploadResult.error ?? "Gagal memproses foto pengurus.",
@@ -226,6 +244,9 @@ export async function updateDivisionStructure(
     .eq("id", parsed.data.id);
 
   if (error) {
+    if (newlyUploadedPaths.length > 0) {
+      await supabase.storage.from("public-assets").remove(newlyUploadedPaths);
+    }
     return {
       success: false,
       message: `Gagal memperbarui struktur divisi: ${error.message}`,

@@ -22,6 +22,7 @@ import {
   upsertAboutGalleryPhoto,
 } from "@/actions/about.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
+import { uploadFilesFromClient } from "@/lib/supabase/client-upload";
 import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { AboutGalleryPhotoJson } from "@/types/database.types";
 
@@ -99,24 +100,47 @@ export function AboutGalleryPanel({
 
     const formData = new FormData(e.currentTarget);
     formData.set("photo_id", editing.id ?? "");
-
-    if (selectedFile) {
-      formData.set("image_file", selectedFile);
-    } else {
-      formData.delete("image_file");
-    }
+    formData.delete("image_file");
 
     setSubmitting(true);
     setFeedback(null);
-    const res = await upsertAboutGalleryPhoto(formData);
-    setSubmitting(false);
 
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      closeModal();
-      refreshInBackground();
-    } else {
-      setFeedback({ type: "error", text: res.message });
+    try {
+      if (selectedFile) {
+        const tagStr = String(formData.get("tag") ?? "galeri");
+        const uploadOutcome = await uploadFilesFromClient({
+          files: [selectedFile],
+          bucket: "public-assets",
+          folder: "about",
+          prefixBuilder: () => `gal-${tagStr}`,
+        });
+
+        if (uploadOutcome.usedDirectUpload && uploadOutcome.uploaded[0]?.url) {
+          formData.set("uploaded_image_url", uploadOutcome.uploaded[0].url);
+          formData.set("uploaded_asset_path", uploadOutcome.uploaded[0].path);
+        } else if (uploadOutcome.compressedFiles[0]) {
+          formData.set("image_file", uploadOutcome.compressedFiles[0]);
+        }
+      }
+
+      const res = await upsertAboutGalleryPhoto(formData);
+      if (res.success) {
+        setFeedback({ type: "success", text: res.message });
+        closeModal();
+        refreshInBackground();
+      } else {
+        setFeedback({ type: "error", text: res.message });
+      }
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text:
+          err instanceof Error
+            ? err.message
+            : "Gagal mengunggah atau menyimpan foto galeri.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
