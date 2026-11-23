@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Edit3, X, Loader2, Upload, RotateCcw } from "lucide-react";
+import { Edit3, X, Loader2, Upload, RotateCcw, Plus, Trash2 } from "lucide-react";
 import { updateDivisionStructure } from "@/actions/org.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 import type { DivisionRow } from "@/types/database.types";
@@ -18,6 +18,21 @@ interface LeaderDraft {
   image: string;
   file: File | null;
   previewUrl: string | null;
+}
+
+interface MemberGroupDraft {
+  role: string;
+  count: number;
+}
+
+function buildInitialMemberGroups(div: DivisionRow): MemberGroupDraft[] {
+  if (Array.isArray(div.member_groups) && div.member_groups.length > 0) {
+    return div.member_groups.map((item) => ({
+      role: item.role ?? "",
+      count: Number.isFinite(Number(item.count)) ? Number(item.count) : 0,
+    }));
+  }
+  return [];
 }
 
 function buildInitialLeaders(div: DivisionRow): LeaderDraft[] {
@@ -54,6 +69,7 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
   const router = useRouter();
   const [editing, setEditing] = useState<DivisionRow | null>(null);
   const [leadersDraft, setLeadersDraft] = useState<LeaderDraft[]>([]);
+  const [memberGroupsDraft, setMemberGroupsDraft] = useState<MemberGroupDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -75,12 +91,31 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
     revokeLeaderPreviews(leadersDraft);
     setEditing(div);
     setLeadersDraft(buildInitialLeaders(div));
+    setMemberGroupsDraft(buildInitialMemberGroups(div));
   };
 
   const closeModal = () => {
     revokeLeaderPreviews(leadersDraft);
     setEditing(null);
     setLeadersDraft([]);
+    setMemberGroupsDraft([]);
+  };
+
+  const addMemberGroup = () => {
+    setMemberGroupsDraft((prev) => [...prev, { role: "", count: 1 }]);
+  };
+
+  const updateMemberGroup = (
+    index: number,
+    patch: Partial<MemberGroupDraft>
+  ) => {
+    setMemberGroupsDraft((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item))
+    );
+  };
+
+  const removeMemberGroup = (index: number) => {
+    setMemberGroupsDraft((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const updateLeaderField = (
@@ -126,6 +161,15 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
         leadersDraft.map(({ name, role, image }) => ({ name, role, image }))
       )
     );
+
+    const cleanedMembers = memberGroupsDraft
+      .map((item) => ({
+        role: item.role.trim(),
+        count: Math.max(0, Math.min(200, Math.trunc(Number(item.count) || 0))),
+      }))
+      .filter((item) => item.role.length > 0);
+
+    formData.set("member_groups_json", JSON.stringify(cleanedMembers));
 
     leadersDraft.forEach((leader, idx) => {
       if (leader.file) {
@@ -444,16 +488,92 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  SUSUNAN ANGGOTA (FORMAT JSON)
-                </label>
-                <textarea
-                  name="member_groups_json"
-                  rows={3}
-                  defaultValue={JSON.stringify(editing.member_groups ?? [], null, 2)}
-                  className="w-full bg-canvas border border-hairline px-3 py-2 font-mono text-xs text-main outline-none"
-                />
+              {/* Susunan Anggota (Visual Row Builder) */}
+              <div className="space-y-3 border border-hairline bg-canvas/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-mono text-[11px] text-blue-400 uppercase tracking-wider block">
+                      SUSUNAN ANGGOTA &amp; PENGURUS
+                    </span>
+                    <span className="font-mono text-[10px] text-muted">
+                      Total saat ini:{" "}
+                      {memberGroupsDraft.reduce(
+                        (sum, item) => sum + (Number(item.count) || 0),
+                        0
+                      )}{" "}
+                      anggota
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addMemberGroup}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-600 text-blue-400 hover:text-white font-mono text-[11px] transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>TAMBAH BARIS</span>
+                  </button>
+                </div>
+
+                {memberGroupsDraft.length === 0 ? (
+                  <p className="font-sans text-xs text-muted py-2">
+                    Belum ada baris susunan anggota. Klik &quot;+ TAMBAH BARIS&quot; untuk menambahkan posisi dan jumlah anggota.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {memberGroupsDraft.map((group, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-2.5 bg-surface border border-hairline"
+                      >
+                        <div className="flex-1 space-y-1">
+                          <label className="font-mono text-[10px] text-secondary block">
+                            POSISI / PERAN
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={group.role}
+                            onChange={(e) =>
+                              updateMemberGroup(idx, { role: e.target.value })
+                            }
+                            placeholder="Contoh: Staff Divisi Desain"
+                            className="w-full bg-canvas border border-hairline px-2.5 py-1.5 font-sans text-xs text-main outline-none"
+                          />
+                        </div>
+
+                        <div className="sm:w-28 space-y-1">
+                          <label className="font-mono text-[10px] text-secondary block">
+                            JUMLAH
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={200}
+                            required
+                            value={group.count}
+                            onChange={(e) =>
+                              updateMemberGroup(idx, {
+                                count: Number(e.target.value),
+                              })
+                            }
+                            className="w-full bg-canvas border border-hairline px-2.5 py-1.5 font-mono text-xs text-main outline-none"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeMemberGroup(idx)}
+                          aria-label={`Hapus baris ${group.role || idx + 1}`}
+                          title="Hapus baris"
+                          className="sm:self-end p-2 border border-hairline hover:border-red-500/50 bg-canvas text-muted hover:text-red-400 transition-colors cursor-pointer flex items-center justify-center"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-hairline flex justify-end gap-3">
