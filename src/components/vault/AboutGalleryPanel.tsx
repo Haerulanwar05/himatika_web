@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -23,6 +22,7 @@ import {
   upsertAboutGalleryPhoto,
 } from "@/actions/about.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
+import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { AboutGalleryPhotoJson } from "@/types/database.types";
 
 interface AboutGalleryPanelProps {
@@ -36,7 +36,12 @@ export function AboutGalleryPanel({
   photos,
   canEditProfile,
 }: AboutGalleryPanelProps) {
-  const router = useRouter();
+  const {
+    items: visiblePhotos,
+    refreshInBackground,
+    deleteItemOptimistic,
+    reorderItemOptimistic,
+  } = useOptimisticVaultItems(photos);
   const [editing, setEditing] = useState<Partial<AboutGalleryPhotoJson> | null>(
     null
   );
@@ -109,7 +114,7 @@ export function AboutGalleryPanel({
     if (res.success) {
       setFeedback({ type: "success", text: res.message });
       closeModal();
-      router.refresh();
+      refreshInBackground();
     } else {
       setFeedback({ type: "error", text: res.message });
     }
@@ -118,15 +123,14 @@ export function AboutGalleryPanel({
   const handleReorder = async (photoId: string, direction: "up" | "down") => {
     setBusyId(photoId);
     setFeedback(null);
-    const res = await reorderAboutGalleryPhoto(photoId, direction);
+    const res = await reorderItemOptimistic(photoId, direction, () =>
+      reorderAboutGalleryPhoto(photoId, direction)
+    );
     setBusyId(null);
-
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      router.refresh();
-    } else {
-      setFeedback({ type: "error", text: res.message });
-    }
+    setFeedback({
+      type: res.success ? "success" : "error",
+      text: res.message,
+    });
   };
 
   const handleDelete = async (photo: AboutGalleryPhotoJson) => {
@@ -138,17 +142,14 @@ export function AboutGalleryPanel({
       return;
     }
 
-    setBusyId(photo.id);
     setFeedback(null);
-    const res = await deleteAboutGalleryPhoto(photo.id);
-    setBusyId(null);
-
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      router.refresh();
-    } else {
-      setFeedback({ type: "error", text: res.message });
-    }
+    const res = await deleteItemOptimistic(photo.id, () =>
+      deleteAboutGalleryPhoto(photo.id)
+    );
+    setFeedback({
+      type: res.success ? "success" : "error",
+      text: res.message,
+    });
   };
 
   return (
@@ -158,7 +159,7 @@ export function AboutGalleryPanel({
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 font-mono text-xs text-blue-400 uppercase tracking-wider">
             <Images className="w-4 h-4" />
-            <span>GALERI FOTO TENTANG (/ABOUT) • {photos.length}/{MAX_PHOTOS} FOTO</span>
+            <span>GALERI FOTO TENTANG (/ABOUT) • {visiblePhotos.length}/{MAX_PHOTOS} FOTO</span>
           </div>
           <h2 className="font-display text-2xl sm:text-3xl uppercase tracking-tight text-main">
             JEJAK KEGIATAN &amp; GALERI TENTANG
@@ -183,7 +184,7 @@ export function AboutGalleryPanel({
 
           <button
             type="button"
-            disabled={photos.length >= MAX_PHOTOS}
+            disabled={visiblePhotos.length >= MAX_PHOTOS}
             onClick={openNewModal}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
           >
@@ -202,7 +203,7 @@ export function AboutGalleryPanel({
         </div>
       )}
 
-      {photos.length === 0 && (
+      {visiblePhotos.length === 0 && (
         <div className="p-4 border border-blue-500/40 bg-blue-500/10 flex items-start gap-3 font-sans text-xs sm:text-sm text-blue-200">
           <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
           <p>
@@ -232,9 +233,9 @@ export function AboutGalleryPanel({
       )}
 
       {/* Photo Grid */}
-      {photos.length > 0 && (
+      {visiblePhotos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {photos.map((photo, index) => {
+          {visiblePhotos.map((photo, index) => {
             const isBusy = busyId === photo.id;
             const badgeText =
               index === 0
@@ -285,7 +286,7 @@ export function AboutGalleryPanel({
                       </button>
                       <button
                         type="button"
-                        disabled={isBusy || index === photos.length - 1}
+                        disabled={isBusy || index === visiblePhotos.length - 1}
                         onClick={() => handleReorder(photo.id, "down")}
                         aria-label={`Turunkan urutan ${photo.tag}`}
                         title="Turunkan urutan"

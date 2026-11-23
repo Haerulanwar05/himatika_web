@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -26,6 +25,7 @@ import {
   upsertHeroSlide,
 } from "@/actions/hero.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
+import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { HeroSlideRow } from "@/types/database.types";
 
 interface HeroSlidesManagerTabProps {
@@ -33,7 +33,13 @@ interface HeroSlidesManagerTabProps {
 }
 
 export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
-  const router = useRouter();
+  const {
+    items: visibleSlides,
+    refreshInBackground,
+    deleteItemOptimistic,
+    patchItemOptimistic,
+    reorderItemOptimistic,
+  } = useOptimisticVaultItems(slides);
   const [editing, setEditing] = useState<Partial<HeroSlideRow> | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
@@ -60,7 +66,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
   };
 
   const activePreviewUrl = previewObjectUrl ?? (editing?.image_url || null);
-  const activeCount = slides.filter((s) => s.is_active).length;
+  const activeCount = visibleSlides.filter((s) => s.is_active).length;
 
   const openNewModal = () => {
     updateSelectedFile(null);
@@ -70,7 +76,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
       title: "",
       category: "HIMATIKA",
       image_url: "",
-      order_index: slides.length + 1,
+      order_index: visibleSlides.length + 1,
       is_active: true,
     });
   };
@@ -112,38 +118,37 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
     if (res.success) {
       setFeedback({ type: "success", text: res.message });
       closeModal();
-      router.refresh();
+      refreshInBackground();
     } else {
       setFeedback({ type: "error", text: res.message });
     }
   };
 
   const handleToggleActive = async (slide: HeroSlideRow) => {
-    setBusyId(slide.id);
+    const nextActive = !slide.is_active;
     setFeedback(null);
-    const res = await toggleHeroSlideActive(slide.id, !slide.is_active);
-    setBusyId(null);
-
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      router.refresh();
-    } else {
-      setFeedback({ type: "error", text: res.message });
-    }
+    const res = await patchItemOptimistic(
+      slide.id,
+      { is_active: nextActive },
+      () => toggleHeroSlideActive(slide.id, nextActive)
+    );
+    setFeedback({
+      type: res.success ? "success" : "error",
+      text: res.message,
+    });
   };
 
   const handleReorder = async (slide: HeroSlideRow, direction: "up" | "down") => {
     setBusyId(slide.id);
     setFeedback(null);
-    const res = await reorderHeroSlide(slide.id, direction);
+    const res = await reorderItemOptimistic(slide.id, direction, () =>
+      reorderHeroSlide(slide.id, direction)
+    );
     setBusyId(null);
-
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      router.refresh();
-    } else {
-      setFeedback({ type: "error", text: res.message });
-    }
+    setFeedback({
+      type: res.success ? "success" : "error",
+      text: res.message,
+    });
   };
 
   const handleDelete = async (slide: HeroSlideRow) => {
@@ -155,17 +160,14 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
       return;
     }
 
-    setBusyId(slide.id);
     setFeedback(null);
-    const res = await deleteHeroSlide(slide.id);
-    setBusyId(null);
-
-    if (res.success) {
-      setFeedback({ type: "success", text: res.message });
-      router.refresh();
-    } else {
-      setFeedback({ type: "error", text: res.message });
-    }
+    const res = await deleteItemOptimistic(slide.id, () =>
+      deleteHeroSlide(slide.id)
+    );
+    setFeedback({
+      type: res.success ? "success" : "error",
+      text: res.message,
+    });
   };
 
   return (
@@ -238,7 +240,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
       )}
 
       {/* Slide Card Grid */}
-      {slides.length === 0 ? (
+      {visibleSlides.length === 0 ? (
         <div className="p-10 border border-hairline bg-surface text-center space-y-2">
           <p className="font-mono text-xs text-secondary uppercase">
             BELUM ADA SLIDE TERSIMPAN
@@ -249,7 +251,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {slides.map((slide, index) => {
+          {visibleSlides.map((slide, index) => {
             const isBusy = busyId === slide.id;
             const orderBadge = `#${String(index + 1).padStart(2, "0")}`;
 
@@ -312,7 +314,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
                       </button>
                       <button
                         type="button"
-                        disabled={isBusy || index === slides.length - 1}
+                        disabled={isBusy || index === visibleSlides.length - 1}
                         onClick={() => handleReorder(slide, "down")}
                         aria-label={`Turunkan urutan ${slide.title}`}
                         title="Turunkan urutan"

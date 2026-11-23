@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   Plus,
   Edit3,
@@ -19,6 +18,7 @@ import {
 } from "@/actions/proker.actions";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type { ProkerStatus, WorkProgramRow } from "@/types/database.types";
 
 interface ProkerManagerTabProps {
@@ -55,7 +55,12 @@ export function ProkerManagerTab({
   prokers,
   canEditProker,
 }: ProkerManagerTabProps) {
-  const router = useRouter();
+  const {
+    items: visibleProkers,
+    refreshInBackground,
+    deleteItemOptimistic,
+    patchItemOptimistic,
+  } = useOptimisticVaultItems(prokers);
   const [editing, setEditing] = useState<Partial<WorkProgramRow> | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverObjectUrl, setCoverObjectUrl] = useState<string | null>(null);
@@ -105,7 +110,7 @@ export function ProkerManagerTab({
     setGalleryDraft([]);
     setEditing({
       id: "",
-      highlight_number: String(prokers.length + 1).padStart(2, "0"),
+      highlight_number: String(visibleProkers.length + 1).padStart(2, "0"),
       title: "",
       slug: "",
       division_code: "MEDKRAF",
@@ -153,28 +158,29 @@ export function ProkerManagerTab({
       setCoverRemoved(false);
       setNewGalleryFiles([]);
       setGalleryDraft([]);
-      router.refresh();
+      refreshInBackground();
     }
   };
 
   const handleStatusChange = async (id: string, status: ProkerStatus) => {
     setFeedback(null);
-    const res = await updateProkerStatus(id, status);
+    const res = await patchItemOptimistic(id, { status }, () =>
+      updateProkerStatus(id, status)
+    );
     setFeedback({
       type: res.success ? "success" : "error",
       text: res.message,
     });
-    if (res.success) router.refresh();
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm(`Hapus program kerja "${title}"?`)) return;
-    const res = await deleteWorkProgram(id);
+    setFeedback(null);
+    const res = await deleteItemOptimistic(id, () => deleteWorkProgram(id));
     setFeedback({
       type: res.success ? "success" : "error",
       text: res.message,
     });
-    if (res.success) router.refresh();
   };
 
   return (
@@ -214,7 +220,7 @@ export function ProkerManagerTab({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {prokers.map((proker) => (
+        {visibleProkers.map((proker) => (
           <div
             key={proker.id}
             className="p-5 bg-surface border border-hairline flex flex-col justify-between gap-4"

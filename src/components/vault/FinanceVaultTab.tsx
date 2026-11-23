@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -20,6 +19,7 @@ import { deleteFinanceTransaction } from "@/actions/finance.actions";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { ReceiptViewerModal } from "./ReceiptViewerModal";
 import { TransactionFormModal } from "./TransactionFormModal";
+import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type {
   FinanceCategoryRow,
   FinancialSummary,
@@ -50,7 +50,11 @@ export function FinanceVaultTab({
   categories,
   canEditFinance,
 }: FinanceVaultTabProps) {
-  const router = useRouter();
+  const {
+    items: visibleTransactions,
+    hiddenIds,
+    deleteItemOptimistic,
+  } = useOptimisticVaultItems(transactions);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<VaultTransactionItem | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{
@@ -61,16 +65,33 @@ export function FinanceVaultTab({
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [monthFilter, setMonthFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  const optimisticSummary = useMemo(() => {
+    if (hiddenIds.length === 0) return summary;
+    const hiddenSet = new Set(hiddenIds);
+    let incomeRemoved = 0;
+    let expenseRemoved = 0;
+    for (const tx of transactions) {
+      if (hiddenSet.has(tx.id)) {
+        if (tx.type === "income") incomeRemoved += tx.amount;
+        else expenseRemoved += tx.amount;
+      }
+    }
+    return {
+      total_income: summary.total_income - incomeRemoved,
+      total_expense: summary.total_expense - expenseRemoved,
+      current_balance: summary.current_balance - incomeRemoved + expenseRemoved,
+    };
+  }, [summary, transactions, hiddenIds]);
+
   const monthOptions = useMemo(() => {
     const keys = Array.from(
       new Set(
-        transactions
+        visibleTransactions
           .map((tx) => tx.transactionDate.slice(0, 7))
           .filter((k) => /^\d{4}-\d{2}$/.test(k))
       )
@@ -80,11 +101,11 @@ export function FinanceVaultTab({
       { value: "ALL", label: "SEMUA PERIODE" },
       ...keys.map((k) => ({ value: k, label: formatMonthLabel(k) })),
     ];
-  }, [transactions]);
+  }, [visibleTransactions]);
 
   const filteredTransactions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return transactions.filter((tx) => {
+    return visibleTransactions.filter((tx) => {
       const matchType = typeFilter === "all" || tx.type === typeFilter;
       const matchMonth =
         monthFilter === "ALL" || tx.transactionDate.startsWith(monthFilter);
@@ -95,7 +116,7 @@ export function FinanceVaultTab({
         (tx.notes ?? "").toLowerCase().includes(q);
       return matchType && matchMonth && matchSearch;
     });
-  }, [transactions, typeFilter, monthFilter, searchQuery]);
+  }, [visibleTransactions, typeFilter, monthFilter, searchQuery]);
 
   const handleOpenCreate = () => {
     setEditingTx(null);
@@ -109,20 +130,16 @@ export function FinanceVaultTab({
 
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm(`Hapus transaksi "${title}"?`)) return;
-    setDeletingId(id);
     setFeedback(null);
 
-    const res = await deleteFinanceTransaction(id);
-    setDeletingId(null);
+    const res = await deleteItemOptimistic(id, () =>
+      deleteFinanceTransaction(id)
+    );
 
     setFeedback({
       type: res.success ? "success" : "error",
       text: res.message,
     });
-
-    if (res.success) {
-      router.refresh();
-    }
   };
 
   const handleExportCsv = () => {
@@ -158,7 +175,7 @@ export function FinanceVaultTab({
             <Wallet className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="font-mono text-2xl sm:text-3xl font-bold text-emerald-400">
-            {formatRupiah(summary.current_balance)}
+            {formatRupiah(optimisticSummary.current_balance)}
           </div>
         </div>
 
@@ -168,7 +185,7 @@ export function FinanceVaultTab({
             <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="font-mono text-2xl sm:text-3xl font-bold text-main">
-            {formatRupiah(summary.total_income)}
+            {formatRupiah(optimisticSummary.total_income)}
           </div>
         </div>
 
@@ -178,7 +195,7 @@ export function FinanceVaultTab({
             <ArrowUpRight className="w-4 h-4 text-red-400" />
           </div>
           <div className="font-mono text-2xl sm:text-3xl font-bold text-red-400">
-            {formatRupiah(summary.total_expense)}
+            {formatRupiah(optimisticSummary.total_expense)}
           </div>
         </div>
       </div>
@@ -299,12 +316,12 @@ export function FinanceVaultTab({
       {filteredTransactions.length === 0 ? (
         <div className="p-12 border border-hairline bg-surface/50 text-center space-y-2">
           <p className="font-display text-xl uppercase text-main">
-            {transactions.length === 0
+            {visibleTransactions.length === 0
               ? "BELUM ADA TRANSAKSI TERCATAT"
               : "TIDAK ADA TRANSAKSI YANG COCOK"}
           </p>
           <p className="font-sans text-xs text-secondary">
-            {transactions.length === 0
+            {visibleTransactions.length === 0
               ? 'Gunakan tombol "Catat Transaksi" untuk menambahkan pemasukan atau pengeluaran pertama.'
               : "Coba ubah filter tipe, periode, atau kata kunci pencarian."}
           </p>
@@ -373,10 +390,9 @@ export function FinanceVaultTab({
                           </button>
                           <button
                             type="button"
-                            disabled={deletingId === tx.id}
                             onClick={() => handleDelete(tx.id, tx.title)}
                             aria-label={`Hapus ${tx.title}`}
-                            className="p-1.5 border border-hairline hover:border-red-500/50 text-muted hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-1.5 border border-hairline hover:border-red-500/50 text-muted hover:text-red-400 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

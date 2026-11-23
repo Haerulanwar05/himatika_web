@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Archive,
   CheckCircle2,
   Clock,
   ExternalLink,
   Inbox,
-  Loader2,
   Mail,
   MailOpen,
   RotateCcw,
@@ -19,6 +17,7 @@ import {
   deleteContactMessage,
   updateContactMessageStatus,
 } from "@/actions/contact.actions";
+import { useOptimisticVaultItems } from "./useOptimisticVaultItems";
 import type {
   ContactMessageRow,
   ContactMessageStatus,
@@ -58,9 +57,12 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
 });
 
 export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
-  const router = useRouter();
+  const {
+    items: visibleMessages,
+    deleteItemOptimistic,
+    patchItemOptimistic,
+  } = useOptimisticVaultItems(messages);
   const [filter, setFilter] = useState<InboxFilter>("all");
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     ok: boolean;
     msg: string;
@@ -68,31 +70,28 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
 
   const counts = useMemo(
     () => ({
-      all: messages.length,
-      unread: messages.filter((m) => m.status === "unread").length,
-      read: messages.filter((m) => m.status === "read").length,
-      archived: messages.filter((m) => m.status === "archived").length,
+      all: visibleMessages.length,
+      unread: visibleMessages.filter((m) => m.status === "unread").length,
+      read: visibleMessages.filter((m) => m.status === "read").length,
+      archived: visibleMessages.filter((m) => m.status === "archived").length,
     }),
-    [messages]
+    [visibleMessages]
   );
 
   const filteredMessages = useMemo(() => {
-    if (filter === "all") return messages;
-    return messages.filter((m) => m.status === filter);
-  }, [messages, filter]);
+    if (filter === "all") return visibleMessages;
+    return visibleMessages.filter((m) => m.status === filter);
+  }, [visibleMessages, filter]);
 
   const handleStatusChange = async (
     id: string,
     nextStatus: ContactMessageStatus
   ) => {
-    setBusyId(id);
     setFeedback(null);
-    const res = await updateContactMessageStatus(id, nextStatus);
-    setBusyId(null);
+    const res = await patchItemOptimistic(id, { status: nextStatus }, () =>
+      updateContactMessageStatus(id, nextStatus)
+    );
     setFeedback({ ok: res.success, msg: res.message });
-    if (res.success) {
-      router.refresh();
-    }
   };
 
   const handleDelete = async (item: ContactMessageRow) => {
@@ -101,14 +100,11 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
     );
     if (!confirmed) return;
 
-    setBusyId(item.id);
     setFeedback(null);
-    const res = await deleteContactMessage(item.id);
-    setBusyId(null);
+    const res = await deleteItemOptimistic(item.id, () =>
+      deleteContactMessage(item.id)
+    );
     setFeedback({ ok: res.success, msg: res.message });
-    if (res.success) {
-      router.refresh();
-    }
   };
 
   const filterButtons: { key: InboxFilter; label: string; count: number }[] = [
@@ -222,7 +218,6 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
         <div className="space-y-4">
           {filteredMessages.map((item) => {
             const meta = STATUS_META[item.status];
-            const isBusy = busyId === item.id;
             const mailtoHref = `mailto:${item.email}?subject=${encodeURIComponent(
               `Re: ${item.subject}`
             )}`;
@@ -283,31 +278,21 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
                         {item.status !== "read" ? (
                           <button
                             type="button"
-                            disabled={isBusy}
                             onClick={() => handleStatusChange(item.id, "read")}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-600 text-emerald-400 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-600 text-emerald-400 hover:text-white transition-colors cursor-pointer"
                           >
-                            {isBusy ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <MailOpen className="w-3.5 h-3.5" />
-                            )}
+                            <MailOpen className="w-3.5 h-3.5" />
                             <span>TANDAI DIBACA</span>
                           </button>
                         ) : (
                           <button
                             type="button"
-                            disabled={isBusy}
                             onClick={() =>
                               handleStatusChange(item.id, "unread")
                             }
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-blue-500/50 text-secondary hover:text-main transition-colors disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-blue-500/50 text-secondary hover:text-main transition-colors cursor-pointer"
                           >
-                            {isBusy ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            )}
+                            <RotateCcw className="w-3.5 h-3.5" />
                             <span>BELUM DIBACA</span>
                           </button>
                         )}
@@ -315,11 +300,10 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
                         {item.status !== "archived" ? (
                           <button
                             type="button"
-                            disabled={isBusy}
                             onClick={() =>
                               handleStatusChange(item.id, "archived")
                             }
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-white/25 text-secondary hover:text-main transition-colors disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-white/25 text-secondary hover:text-main transition-colors cursor-pointer"
                           >
                             <Archive className="w-3.5 h-3.5" />
                             <span>ARSIPKAN</span>
@@ -327,9 +311,8 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
                         ) : (
                           <button
                             type="button"
-                            disabled={isBusy}
                             onClick={() => handleStatusChange(item.id, "read")}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-blue-500/50 text-secondary hover:text-main transition-colors disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 border border-hairline bg-canvas hover:border-blue-500/50 text-secondary hover:text-main transition-colors cursor-pointer"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                             <span>PULIHKAN</span>
@@ -338,9 +321,8 @@ export function InboxTab({ messages, canManageInbox }: InboxTabProps) {
 
                         <button
                           type="button"
-                          disabled={isBusy}
                           onClick={() => handleDelete(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-500/40 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-500/40 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>HAPUS</span>

@@ -39,6 +39,9 @@ async function VaultContent() {
   }
 
   const supabase = await createClient();
+  const role = pengurus.profile.role;
+  const canViewProker = role === "medkraf" || role === "admin";
+  const canViewDivisions = role === "admin";
 
   const [
     summaryRes,
@@ -62,25 +65,33 @@ async function VaultContent() {
       .from("finance_categories")
       .select("id, name, type")
       .order("name", { ascending: true }),
-    supabase
-      .from("work_programs")
-      .select("*")
-      .order("highlight_number", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("hero_slides")
-      .select("*")
-      .order("order_index", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("divisions")
-      .select("*")
-      .order("order_index", { ascending: true }),
+    canViewProker
+      ? supabase
+          .from("work_programs")
+          .select("*")
+          .order("highlight_number", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: null }),
+    canViewProker
+      ? supabase
+          .from("hero_slides")
+          .select("*")
+          .order("order_index", { ascending: true })
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: null }),
+    canViewDivisions
+      ? supabase
+          .from("divisions")
+          .select("*")
+          .order("order_index", { ascending: true })
+      : Promise.resolve({ data: null }),
     supabase
       .from("contact_messages")
       .select("id, name, email, subject, message, status, created_at")
       .order("created_at", { ascending: false }),
-    supabase.from("site_about").select("*").eq("id", "default").maybeSingle(),
+    canViewProker
+      ? supabase.from("site_about").select("*").eq("id", "default").maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const rawSummary = Array.isArray(summaryRes.data)
