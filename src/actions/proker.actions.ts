@@ -33,7 +33,6 @@ const prokerSchema = z.object({
   short_desc: z.string().trim().min(10, "Ringkasan minimal 10 karakter.").max(400),
   full_content: z.string().trim().optional(),
   objectives_text: z.string().trim().optional(),
-  rundown_text: z.string().trim().optional(),
   registration_link: z
     .string()
     .trim()
@@ -63,24 +62,6 @@ const DIVISION_NAME_MAP: Record<string, string> = {
   MEDKRAF: "MEDIA KREATIF",
 };
 
-function parseRundownLines(text: string): ProkerRundownJson[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const sepIdx = line.indexOf("|");
-      if (sepIdx === -1) {
-        return { time: "AGENDA", activity: line };
-      }
-      return {
-        time: line.slice(0, sepIdx).trim() || "AGENDA",
-        activity: line.slice(sepIdx + 1).trim(),
-      };
-    })
-    .filter((item) => item.activity.length > 0);
-}
-
 /**
  * Create or update a work program in Supabase and invalidate public proker caches.
  */
@@ -106,7 +87,6 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     short_desc: formData.get("short_desc"),
     full_content: formData.get("full_content") || "",
     objectives_text: formData.get("objectives_text") || "",
-    rundown_text: formData.get("rundown_text") || "",
     registration_link: formData.get("registration_link") || "",
     contact_name: formData.get("contact_name") || "",
     contact_role: formData.get("contact_role") || "",
@@ -216,8 +196,6 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const rundown = parseRundownLines(parsed.data.rundown_text ?? "");
-
   const contactName = parsed.data.contact_name?.trim() ?? "";
   const contactPhone = parsed.data.contact_phone?.trim() ?? "";
   const contactPerson: ProkerContactJson | null =
@@ -244,7 +222,7 @@ export async function upsertWorkProgram(formData: FormData): Promise<ActionResul
     short_desc: parsed.data.short_desc,
     full_content: parsed.data.full_content || parsed.data.short_desc,
     objectives,
-    rundown,
+    rundown: [] as ProkerRundownJson[],
     cover_image_url: coverUrl,
     gallery_images: combinedGallery,
     registration_link: parsed.data.registration_link || null,

@@ -14,7 +14,6 @@ import {
   FileText,
   Layers,
   MessageCircle,
-  Clock,
 } from "lucide-react";
 import { getPublicProkers } from "@/lib/data/queries";
 import { PROKER_STATUS_LABEL } from "@/lib/data/proker";
@@ -137,7 +136,7 @@ export default async function ProkerDetailPage({
       {/* Main Split Layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
-          {/* Left Column: Narrative, Details, Rundown, Gallery (8 cols) */}
+          {/* Left Column: Narrative, Details, Gallery (8 cols) */}
           <div className="lg:col-span-8 space-y-12">
             {/* Main Visual Cover */}
             {proker.coverImage && (
@@ -208,35 +207,7 @@ export default async function ProkerDetailPage({
               </section>
             )}
 
-            {/* Section 3: Rundown / Susunan Acara (Jika Ada) */}
-            {proker.rundown && proker.rundown.length > 0 && (
-              <section className="space-y-4 pt-4 border-t border-white/5">
-                <div className="flex items-center gap-2 text-xs font-mono text-blue-400 uppercase tracking-wider">
-                  <Clock className="w-3.5 h-3.5" />
-                  SUSUNAN ACARA
-                </div>
-                <h2 className="font-display text-2xl sm:text-3xl uppercase text-white">
-                  SUSUNAN KEGIATAN
-                </h2>
-                <div className="border border-white/10 rounded overflow-hidden divide-y divide-white/5 bg-[#0c0c0e]">
-                  {proker.rundown.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <span className="font-mono text-xs text-blue-400 font-medium shrink-0 sm:w-40">
-                        {item.time}
-                      </span>
-                      <span className="text-sm text-zinc-200 flex-1">
-                        {item.activity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Section 4: Galeri Dokumentasi Foto dengan Interaktif Lightbox */}
+            {/* Section 3: Galeri Dokumentasi Foto dengan Interaktif Lightbox */}
             {proker.galleryImages && proker.galleryImages.length > 0 && (
               <ProkerGallery title={proker.title} images={proker.galleryImages} />
             )}

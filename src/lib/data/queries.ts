@@ -46,7 +46,6 @@ function mapRowToProkerItem(row: WorkProgramRow, index: number): ProkerItem {
     shortDesc: row.short_desc,
     fullDesc,
     objectives: row.objectives ?? [],
-    rundown: Array.isArray(row.rundown) ? row.rundown : [],
     coverImage: row.cover_image_url || undefined,
     isWhiteBackground: Boolean(row.is_white_background),
     galleryImages: row.gallery_images ?? [],

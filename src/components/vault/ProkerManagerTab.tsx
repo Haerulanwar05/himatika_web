@@ -116,7 +116,6 @@ export function ProkerManagerTab({
       short_desc: "",
       full_content: "",
       objectives: [],
-      rundown: [],
       gallery_images: [],
       cover_image_url: null,
       registration_link: "",
@@ -464,21 +463,6 @@ export function ProkerManagerTab({
                   rows={3}
                   defaultValue={(editing.objectives ?? []).join("\n")}
                   className="w-full bg-canvas border border-hairline px-3 py-2 font-sans text-xs text-main outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  SUSUNAN ACARA / RUNDOWN (FORMAT: WAKTU | KEGIATAN, 1 BARIS PER SESI)
-                </label>
-                <textarea
-                  name="rundown_text"
-                  rows={3}
-                  placeholder="08.00 - 09.00 | Registrasi Peserta & Pembukaan"
-                  defaultValue={(editing.rundown ?? [])
-                    .map((item) => `${item.time} | ${item.activity}`)
-                    .join("\n")}
-                  className="w-full bg-canvas border border-hairline px-3 py-2 font-mono text-xs text-main outline-none"
                 />
               </div>
 

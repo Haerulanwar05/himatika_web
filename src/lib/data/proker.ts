@@ -6,11 +6,6 @@ export const PROKER_STATUS_LABEL: Record<ProkerStatus, string> = {
   completed: "Selesai",
 };
 
-export interface RundownItem {
-  time: string;
-  activity: string;
-}
-
 export interface ProkerItem {
   id: string;
   number: string;
@@ -25,7 +20,6 @@ export interface ProkerItem {
   shortDesc: string;
   fullDesc: string[];
   objectives: string[];
-  rundown?: RundownItem[];
   coverImage?: string | null;
   isWhiteBackground?: boolean;
   galleryImages?: string[];
@@ -62,16 +56,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Menumbuhkan jiwa kepemimpinan, tanggung jawab, dan kemampuan komunikasi antar-mahasiswa.",
       "Mempererat tali persaudaraan dan solidaritas antar-angkatan mahasiswa Teknik Informatika.",
       "Membekali peserta dengan keterampilan problem-solving dan kerja sama tim dalam menghadapi dinamika perkuliahan.",
-    ],
-    rundown: [
-      { time: "06.30 - 08.00", activity: "Kumpul & Registrasi Peserta di Kampus Trilogi" },
-      { time: "08.00 - 10.30", activity: "Perjalanan Menuju Lokasi Camp & Pembagian Barak" },
-      { time: "10.30 - 12.00", activity: "Upacara Pembukaan & Sambutan Kaprodi Teknik Informatika" },
-      { time: "13.00 - 15.30", activity: "Sesi Materi 1: Kepemimpinan & Manajemen Organisasi" },
-      { time: "16.00 - 17.30", activity: "Simulasi Team Building & Problem Solving Games" },
-      { time: "19.30 - 22.00", activity: "Malam Keakraban, Sharing Alumni, & Api Unggun Solidaritas" },
-      { time: "06.00 - 08.00", activity: "Senam Pagi, Sarapan Sehat, & Outbound Tracking" },
-      { time: "09.30 - 11.30", activity: "Inaugurasi Angkatan & Penutupan Resmi" },
     ],
     coverImage: "/image/tcamp2024.webp",
     galleryImages: [
@@ -111,13 +95,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Membuka peluang kerja sama antara mahasiswa bertalenta dengan perusahaan teknologi rekanan.",
       "Mempromosikan Program Studi Teknik Informatika Universitas Trilogi ke siswa-siswi SMA/SMK sederajat.",
     ],
-    rundown: [
-      { time: "08.30 - 09.30", activity: "Opening Ceremony, Tarian Tradisional, & Ribbon Cutting" },
-      { time: "09.30 - 12.00", activity: "Exhibition Hall Open: Showcase 25+ Software Mahasiswa" },
-      { time: "10.00 - 15.00", activity: "Penyisihan Turnamen E-Sports (Mobile Legends & Valorant)" },
-      { time: "13.00 - 15.00", activity: "Tech Talk: Menjawab Tantangan AI di Industri Digital" },
-      { time: "15.30 - 17.00", activity: "Grand Final E-Sports & Awarding Inovasi Terbaik" },
-    ],
     coverImage: "/image/t-expo.webp",
     galleryImages: [
       "/image/t-expo.webp",
@@ -155,12 +132,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Menjembatani kurikulum perkuliahan dengan standar kebutuhan nyata di industri teknologi informasi.",
       "Membantu mahasiswa membangun portofolio proyek software yang solid untuk persiapan karir.",
       "Mempersiapkan tim delegasi mahasiswa untuk menghadapi ajang kompetisi IT nasional (Gemastik & Hackathon).",
-    ],
-    rundown: [
-      { time: "Sesi 01", activity: "Full-Stack Web Modern: Next.js 15, TypeScript & Tailwind CSS" },
-      { time: "Sesi 02", activity: "Backend Engineering: Supabase PostgreSQL, Authentication, & Row Level Security" },
-      { time: "Sesi 03", activity: "Prinsip AI Engineering: Integrasi LLM, Prompt Engineering, & Vector Search" },
-      { time: "Sesi 04", activity: "Project Showcase & Code Review bersama Lead Engineer Partner" },
     ],
     coverImage: "/image/workshop.webp",
     galleryImages: [
@@ -200,14 +171,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Memfasilitasi program magang (internship) dan lowongan pekerjaan bagi lulusan Teknik Informatika.",
       "Menginspirasi mahasiswa dalam memilih spesialisasi karir teknologi yang diminati.",
     ],
-    rundown: [
-      { time: "07.30 - 08.30", activity: "Kumpul di Kampus Trilogi & Briefing Keberangkatan" },
-      { time: "08.30 - 09.30", activity: "Perjalanan Menuju Gedung MNC Kebon Sirih" },
-      { time: "09.30 - 11.30", activity: "Office Tour MNC: Studio Digital, Data Center, & Media Room" },
-      { time: "11.30 - 13.00", activity: "Ishoma & Perjalanan Menuju Jakarta Smart City" },
-      { time: "13.00 - 15.00", activity: "Sharing Session: Transformasi Digital DKI Jakarta bersama Tim JSC" },
-      { time: "15.00 - 15.30", activity: "Penyerahan Plakat Penghargaan & Foto Bersama" },
-    ],
     coverImage: "/image/Company Visit MNC.webp",
     galleryImages: [
       "/image/Company Visit MNC.webp",
@@ -246,12 +209,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Memperkuat ikatan alumni sebagai jejaring pendukung bagi mahasiswa yang baru lulus.",
       "Memberikan pemahaman tentang tren gaji, etika profesional, dan roadmap karir masa kini.",
     ],
-    rundown: [
-      { time: "09.00 - 09.30", activity: "Registrasi Peserta & Sambutan Ketua Himpunan" },
-      { time: "09.30 - 10.45", activity: "Sesi 1: Menembus Screening CV & Portofolio Engineering" },
-      { time: "10.45 - 12.00", activity: "Sesi 2: Rahasia Menghadapi Technical Coding Interview" },
-      { time: "13.00 - 15.00", activity: "1-on-1 Mentorship Corner & Bedah Portofolio bersama Alumni" },
-    ],
     coverImage: "/image/dukungan karir.webp",
     galleryImages: [
       "/image/dukungan karir.webp",
@@ -287,12 +244,6 @@ export const ALL_PROKERS: ProkerItem[] = [
       "Memperluas jejaring koneksi mahasiswa dengan komunitas developer di luar kampus.",
       "Menghadirkan pembicara dan mentor teknologi berskala nasional melalui kolaborasi terpadu.",
       "Menciptakan proyek software kolaboratif yang berdampak nyata bagi masyarakat.",
-    ],
-    rundown: [
-      { time: "Tahap 1", activity: "Penyusunan Nota Kesepahaman & Jadwal Kolaborasi Antar-Ormawa" },
-      { time: "Tahap 2", activity: "Joint Workshop: Cloud Computing & Web Architecture bersama GDSC" },
-      { time: "Tahap 3", activity: "Collaborative Hackathon: Solusi Cerdas Lingkungan Kampus" },
-      { time: "Tahap 4", activity: "Evaluasi Bersama & Serah Terima Hasil Karya Digital" },
     ],
     coverImage: "/image/kolaborasi.png",
     isWhiteBackground: true,
