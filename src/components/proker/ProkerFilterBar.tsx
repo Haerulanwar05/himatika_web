@@ -17,7 +17,7 @@ interface ProkerFilterBarProps {
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: "SEMUA", value: "all" },
-  { label: "AKAN DATANG", value: "upcoming" },
+  { label: "COMING SOON", value: "upcoming" },
   { label: "SEDANG BERJALAN", value: "ongoing" },
   { label: "SELESAI", value: "completed" },
 ];

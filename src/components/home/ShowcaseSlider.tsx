@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Calendar, Layers } from "lucide-react";
 import { FLAGSHIP_PROKERS, FeaturedProker } from "@/lib/data/flagship-proker";
+import { PROKER_STATUS_LABEL } from "@/lib/data/proker";
 import { ProkerCoverPlaceholder } from "@/components/proker/ProkerCoverPlaceholder";
 
 interface ShowcaseSliderProps {
@@ -151,7 +152,9 @@ export default function ShowcaseSlider({ prokers = FLAGSHIP_PROKERS }: ShowcaseS
                         : "bg-blue-500 animate-pulse"
                     }`}
                   />
-                  <span className="text-main">{currentProker.status}</span>
+                  <span className="text-main">
+                    {PROKER_STATUS_LABEL[currentProker.status]}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-canvas/80 backdrop-blur-md border border-hairline font-mono text-[10px] text-secondary tracking-wider">

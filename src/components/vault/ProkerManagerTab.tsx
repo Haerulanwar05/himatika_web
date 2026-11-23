@@ -40,15 +40,15 @@ const DIVISION_OPTIONS = [
 ];
 
 const QUICK_STATUS_OPTIONS = [
-  { value: "upcoming", label: "UPCOMING" },
-  { value: "ongoing", label: "ONGOING" },
-  { value: "completed", label: "COMPLETED" },
+  { value: "upcoming", label: "COMING SOON" },
+  { value: "ongoing", label: "SEDANG BERJALAN" },
+  { value: "completed", label: "SELESAI" },
 ];
 
 const MODAL_STATUS_OPTIONS = [
-  { value: "upcoming", label: "UPCOMING (AKAN DATANG)" },
-  { value: "ongoing", label: "ONGOING (BERJALAN)" },
-  { value: "completed", label: "COMPLETED (SELESAI)" },
+  { value: "upcoming", label: "COMING SOON" },
+  { value: "ongoing", label: "SEDANG BERJALAN" },
+  { value: "completed", label: "SELESAI" },
 ];
 
 export function ProkerManagerTab({
@@ -518,18 +518,11 @@ export function ProkerManagerTab({
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  LINK PENDAFTARAN (OPSIONAL)
-                </label>
-                <input
-                  name="registration_link"
-                  type="url"
-                  defaultValue={editing.registration_link ?? ""}
-                  placeholder="https://forms.gle/..."
-                  className="w-full bg-canvas border border-hairline px-3 py-2 font-mono text-xs text-main outline-none"
-                />
-              </div>
+              <input
+                type="hidden"
+                name="registration_link"
+                value={editing.registration_link ?? ""}
+              />
 
               <div className="space-y-2.5 border border-hairline bg-canvas/50 p-3.5">
                 <div className="flex items-center justify-between gap-2">

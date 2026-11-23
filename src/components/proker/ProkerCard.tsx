@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, MapPin, ArrowRight, CheckCircle2 } from "lucide-react";
-import { ProkerItem } from "@/lib/data/proker";
+import { PROKER_STATUS_LABEL, ProkerItem } from "@/lib/data/proker";
 import { ProkerCoverPlaceholder } from "./ProkerCoverPlaceholder";
 
 interface ProkerCardProps {
@@ -17,7 +17,7 @@ export function ProkerCard({ proker }: ProkerCardProps) {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Akan Datang
+            {PROKER_STATUS_LABEL.upcoming}
           </span>
         );
       case "ongoing":

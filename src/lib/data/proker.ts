@@ -1,5 +1,11 @@
 export type ProkerStatus = "upcoming" | "ongoing" | "completed";
 
+export const PROKER_STATUS_LABEL: Record<ProkerStatus, string> = {
+  upcoming: "Coming Soon",
+  ongoing: "Sedang Berjalan",
+  completed: "Selesai",
+};
+
 export interface RundownItem {
   time: string;
   activity: string;

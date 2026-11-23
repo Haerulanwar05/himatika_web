@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Sparkles, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+import { Camera, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 
 interface ProkerGalleryProps {
@@ -35,7 +35,7 @@ export function ProkerGallery({ title, images }: ProkerGalleryProps) {
     <>
       <section className="space-y-4 pt-4 border-t border-white/5">
         <div className="flex items-center gap-2 text-xs font-mono text-blue-400 uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5" />
+          <Camera className="w-3.5 h-3.5" />
           DOKUMENTASI FOTO
         </div>
         <div className="flex items-center justify-between">

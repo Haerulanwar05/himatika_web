@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ProkerItem } from "@/lib/data/proker";
 import { ProkerFilterBar } from "./ProkerFilterBar";
 import { ProkerCard } from "./ProkerCard";
-import { Sparkles, SearchX } from "lucide-react";
+import { CalendarDays, SearchX } from "lucide-react";
 import Link from "next/link";
 
 interface ProkerCatalogClientProps {
@@ -90,7 +90,7 @@ export function ProkerCatalogClient({ initialProkers }: ProkerCatalogClientProps
 
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-400 font-mono text-xs tracking-wider uppercase mb-4">
-            <Sparkles className="w-3.5 h-3.5" />
+            <CalendarDays className="w-3.5 h-3.5" />
             AGENDA KEGIATAN 2026/2027
           </div>
 
@@ -115,9 +115,9 @@ export function ProkerCatalogClient({ initialProkers }: ProkerCatalogClientProps
               </span>
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-white/5 rounded">
-              <span className="text-zinc-500 block mb-1">AKAN DATANG</span>
+              <span className="text-zinc-500 block mb-1">COMING SOON</span>
               <span className="text-lg font-display text-amber-400">
-                {initialProkers.filter((p) => p.status === "upcoming").length} SEGERA
+                {initialProkers.filter((p) => p.status === "upcoming").length} PROGRAM
               </span>
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-white/5 rounded">

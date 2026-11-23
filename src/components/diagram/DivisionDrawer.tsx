@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { X, ArrowRight, ExternalLink } from "lucide-react";
 import { OrgNode } from "@/lib/data/organization";
+import { PROKER_STATUS_LABEL } from "@/lib/data/proker";
 import { useLockBodyScroll } from "@/components/common/SmoothScroller";
 
 interface DivisionDrawerProps {
@@ -241,7 +242,7 @@ export default function DivisionDrawer({
                               : "text-amber-400"
                           }
                         >
-                          {proker.status.toUpperCase()}
+                          {PROKER_STATUS_LABEL[proker.status].toUpperCase()}
                         </span>
                       </span>
                     </div>

@@ -11,12 +11,13 @@ import {
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
-  ExternalLink,
+  FileText,
+  Layers,
   MessageCircle,
   Clock,
-  Sparkles,
 } from "lucide-react";
 import { getPublicProkers } from "@/lib/data/queries";
+import { PROKER_STATUS_LABEL } from "@/lib/data/proker";
 import { ProkerGallery } from "@/components/proker/ProkerGallery";
 
 interface ProkerDetailPageProps {
@@ -75,7 +76,7 @@ export default async function ProkerDetailPage({
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Akan Datang
+            {PROKER_STATUS_LABEL.upcoming}
           </span>
         );
       case "ongoing":
@@ -166,7 +167,7 @@ export default async function ProkerDetailPage({
             {/* Section 1: Latar Belakang & Deskripsi Naratif */}
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-xs font-mono text-blue-400 uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5" />
                 TENTANG KEGIATAN
               </div>
               <h2 className="font-display text-2xl sm:text-3xl uppercase text-white">
@@ -289,7 +290,7 @@ export default async function ProkerDetailPage({
 
                   {/* Division */}
                   <div className="flex items-start gap-3">
-                    <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                    <Layers className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                     <div>
                       <span className="text-zinc-500 block">DIVISI PENYELENGGARA</span>
                       <span className="text-blue-400 text-sm font-sans font-medium">
@@ -299,24 +300,18 @@ export default async function ProkerDetailPage({
                   </div>
                 </div>
 
-                {/* Primary Action Button */}
+                {/* Status Info Banner */}
                 <div className="pt-4 border-t border-white/10 space-y-3">
-                  {proker.status === "upcoming" && proker.registrationLink ? (
-                    <a
-                      href={proker.registrationLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs tracking-wider uppercase rounded font-medium transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] text-center"
-                    >
-                      DAFTAR SEKARANG
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                  {proker.status === "upcoming" ? (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-center text-xs font-mono uppercase tracking-wider text-amber-400">
+                      PROGRAM INI COMING SOON
+                    </div>
                   ) : proker.status === "ongoing" ? (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded text-center text-xs font-mono text-emerald-400">
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded text-center text-xs font-mono uppercase tracking-wider text-emerald-400">
                       PROGRAM INI SEDANG BERLANGSUNG
                     </div>
                   ) : (
-                    <div className="p-3 bg-zinc-800/80 border border-zinc-700 rounded text-center text-xs font-mono text-zinc-300">
+                    <div className="p-3 bg-zinc-800/80 border border-zinc-700 rounded text-center text-xs font-mono uppercase tracking-wider text-zinc-300">
                       KEGIATAN TELAH SELESAI DILAKSANAKAN
                     </div>
                   )}

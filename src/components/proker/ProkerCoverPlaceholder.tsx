@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageOff } from "lucide-react";
+import Image from "next/image";
 
 interface ProkerCoverPlaceholderProps {
   title: string;
@@ -26,8 +26,14 @@ export function ProkerCoverPlaceholder({
       <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 flex flex-col items-center gap-2.5 max-w-xs">
-        <div className="w-10 h-10 rounded-xs border border-white/10 bg-white/[0.03] flex items-center justify-center text-blue-400/80">
-          <ImageOff className="w-4 h-4" />
+        <div className="relative w-11 h-11 shrink-0">
+          <Image
+            src="/image/logohima.png"
+            alt="Logo HIMATIKA"
+            fill
+            sizes="44px"
+            className="object-contain opacity-85"
+          />
         </div>
         <span className="font-mono text-[10px] tracking-widest uppercase text-zinc-500">
           {divisionCode}
