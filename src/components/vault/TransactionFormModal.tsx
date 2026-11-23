@@ -122,7 +122,7 @@ function TransactionFormDialog({
       aria-modal="true"
       data-lenis-prevent
       className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto overscroll-contain"
-      onClick={onClose}
+      onClick={() => !submitting && onClose()}
     >
       <div
         data-lenis-prevent
@@ -140,9 +140,10 @@ function TransactionFormDialog({
           </div>
           <button
             type="button"
+            disabled={submitting}
             onClick={onClose}
             aria-label="Tutup formulir transaksi"
-            className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer"
+            className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer disabled:opacity-50"
           >
             <X className="w-4 h-4" />
           </button>

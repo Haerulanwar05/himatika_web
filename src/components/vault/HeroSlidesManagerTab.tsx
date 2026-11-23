@@ -46,6 +46,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     text: string;
@@ -71,6 +72,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
 
   const openNewModal = () => {
     updateSelectedFile(null);
+    setModalError(null);
     setFeedback(null);
     setEditing({
       id: "",
@@ -84,12 +86,14 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
 
   const openEditModal = (slide: HeroSlideRow) => {
     updateSelectedFile(null);
+    setModalError(null);
     setFeedback(null);
     setEditing(slide);
   };
 
   const closeModal = () => {
     updateSelectedFile(null);
+    setModalError(null);
     setEditing(null);
   };
 
@@ -107,6 +111,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
     formData.delete("image_file");
 
     setSubmitting(true);
+    setModalError(null);
     setFeedback(null);
 
     try {
@@ -133,16 +138,14 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
         closeModal();
         refreshInBackground();
       } else {
-        setFeedback({ type: "error", text: res.message });
+        setModalError(res.message);
       }
     } catch (err) {
-      setFeedback({
-        type: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "Gagal mengunggah atau menyimpan slide. Silakan coba lagi.",
-      });
+      setModalError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengunggah atau menyimpan slide. Silakan coba lagi."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -402,7 +405,7 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
       {editing && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={closeModal}
+          onClick={() => !submitting && closeModal()}
         >
           <div
             data-lenis-prevent
@@ -421,19 +424,14 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
 
               <button
                 type="button"
+                disabled={submitting}
                 onClick={closeModal}
                 aria-label="Tutup modal"
-                className="p-2 border border-hairline bg-canvas text-secondary hover:text-main cursor-pointer"
+                className="p-2 border border-hairline bg-canvas text-secondary hover:text-main cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            {feedback?.type === "error" && (
-              <div className="p-3 border border-red-500/40 bg-red-500/10 font-mono text-xs text-red-300">
-                {feedback.text}
-              </div>
-            )}
 
             <form onSubmit={handleSave} className="space-y-4">
               {/* Photo Upload + Live 16:9 Preview */}
@@ -550,6 +548,12 @@ export function HeroSlidesManagerTab({ slides }: HeroSlidesManagerTabProps) {
                   Tampilkan di slider beranda
                 </span>
               </label>
+
+              {modalError && (
+                <div className="p-3 border border-red-500/40 bg-red-500/10 font-mono text-xs text-red-300">
+                  {modalError}
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-hairline font-mono text-xs">
                 <button

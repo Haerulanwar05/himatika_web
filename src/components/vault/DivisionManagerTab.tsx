@@ -345,7 +345,7 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
           aria-modal="true"
           data-lenis-prevent
           className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto overscroll-contain"
-          onClick={closeModal}
+          onClick={() => !submitting && closeModal()}
         >
           <div
             data-lenis-prevent
@@ -358,9 +358,10 @@ export function DivisionManagerTab({ divisions }: DivisionManagerTabProps) {
               </h3>
               <button
                 type="button"
+                disabled={submitting}
                 onClick={closeModal}
                 aria-label="Tutup modal edit bidang"
-                className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer"
+                className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>

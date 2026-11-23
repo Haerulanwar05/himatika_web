@@ -1,6 +1,9 @@
 "use client";
 
-import { createSignedUploadTickets } from "@/actions/storage.actions";
+import {
+  createSignedUploadTickets,
+  type SignedUploadTicket,
+} from "@/actions/storage.actions";
 import {
   compressImageForUpload,
   type CompressImageOptions,
@@ -9,6 +12,9 @@ import { createClient } from "@/lib/supabase/client";
 
 const FALLBACK_SERVER_PAYLOAD_LIMIT_BYTES = 3.6 * 1024 * 1024; // Leave headroom under Vercel 4.5 MB cap
 const MAX_UPLOAD_BYTES_PER_FILE = 5 * 1024 * 1024;
+const TICKET_BATCH_SIZE = 15;
+const TICKET_REQUEST_TIMEOUT_MS = 20_000;
+const DIRECT_UPLOAD_TIMEOUT_MS = 35_000;
 
 export interface UploadedFileResult {
   url: string | null;
@@ -32,6 +38,29 @@ function getSafeExtension(file: File): "jpg" | "jpeg" | "png" | "webp" | "pdf" {
     default:
       return "jpg";
   }
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  timeoutMessage: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
 }
 
 /**
@@ -86,30 +115,49 @@ export async function uploadFilesFromClient(params: {
   let directErrorMessage: string | null = null;
 
   try {
-    const ticketRes = await createSignedUploadTickets({
-      bucket,
-      folder,
-      files: compressedFiles.map((file, idx) => ({
-        prefix: prefixBuilder(file, idx),
-        ext: getSafeExtension(file),
-      })),
-    });
+    const tickets: SignedUploadTicket[] = [];
+    let ticketError: string | null = null;
 
-    if (!ticketRes.success || !ticketRes.tickets) {
-      directErrorMessage =
-        ticketRes.message ?? "Gagal meminta token unggah ke penyimpanan.";
+    for (let start = 0; start < compressedFiles.length; start += TICKET_BATCH_SIZE) {
+      const batch = compressedFiles.slice(start, start + TICKET_BATCH_SIZE);
+      const ticketRes = await withTimeout(
+        createSignedUploadTickets({
+          bucket,
+          folder,
+          files: batch.map((file, batchIdx) => ({
+            prefix: prefixBuilder(file, start + batchIdx),
+            ext: getSafeExtension(file),
+          })),
+        }),
+        TICKET_REQUEST_TIMEOUT_MS,
+        "Waktu meminta izin unggah habis. Periksa koneksi internet Anda."
+      );
+
+      if (!ticketRes.success || !ticketRes.tickets) {
+        ticketError =
+          ticketRes.message ?? "Gagal meminta token unggah ke penyimpanan.";
+        break;
+      }
+      tickets.push(...ticketRes.tickets);
+    }
+
+    if (ticketError) {
+      directErrorMessage = ticketError;
     } else {
       const supabase = createClient();
-      const tickets = ticketRes.tickets;
 
       const uploadResults = await Promise.all(
         compressedFiles.map(async (file, idx) => {
           const ticket = tickets[idx];
-          const { error } = await supabase.storage
-            .from(bucket)
-            .uploadToSignedUrl(ticket.path, ticket.token, file, {
-              contentType: file.type,
-            });
+          const { error } = await withTimeout(
+            supabase.storage
+              .from(bucket)
+              .uploadToSignedUrl(ticket.path, ticket.token, file, {
+                contentType: file.type,
+              }),
+            DIRECT_UPLOAD_TIMEOUT_MS,
+            `Waktu unggah "${file.name}" habis. Koneksi internet terlalu lambat atau terputus.`
+          );
           return { ticket, error };
         })
       );
@@ -130,7 +178,10 @@ export async function uploadFilesFromClient(params: {
         .filter((item) => !item.error)
         .map((item) => item.ticket.path);
       if (uploadedSoFar.length > 0) {
-        await supabase.storage.from(bucket).remove(uploadedSoFar);
+        await supabase.storage
+          .from(bucket)
+          .remove(uploadedSoFar)
+          .catch(() => undefined);
       }
 
       directErrorMessage = firstErr.error?.message ?? "Gagal mengunggah berkas.";

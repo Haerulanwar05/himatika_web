@@ -409,7 +409,7 @@ export function ProkerManagerTab({
           aria-modal="true"
           data-lenis-prevent
           className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto overscroll-contain"
-          onClick={() => setEditing(null)}
+          onClick={() => !submitting && setEditing(null)}
         >
           <div
             data-lenis-prevent
@@ -422,8 +422,10 @@ export function ProkerManagerTab({
               </h3>
               <button
                 type="button"
+                disabled={submitting}
                 onClick={() => setEditing(null)}
-                className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer"
+                aria-label="Tutup modal program kerja"
+                className="p-2 border border-hairline text-secondary hover:text-main cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -479,13 +481,12 @@ export function ProkerManagerTab({
                     required
                     value={slugInput}
                     onChange={(e) => {
-                      setSlugManuallyEdited(true);
-                      setSlugInput(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]+/g, "-")
-                          .replace(/^-+/, "")
-                      );
+                      const nextSlug = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, "-")
+                        .replace(/^-+/, "");
+                      setSlugManuallyEdited(nextSlug.length > 0 || Boolean(editing.id));
+                      setSlugInput(nextSlug);
                     }}
                     placeholder="contoh: tech-workshop-2026"
                     className="w-full bg-canvas border border-hairline px-3 py-2 font-mono text-xs text-main outline-none"

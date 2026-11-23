@@ -22,12 +22,12 @@ const ticketRequestSchema = z.object({
   files: z
     .array(
       z.object({
-        prefix: z.string().trim().min(1).max(60),
+        prefix: z.string().trim().min(1).max(180),
         ext: z.enum(["jpg", "jpeg", "png", "webp", "pdf"]),
       })
     )
-    .min(1)
-    .max(15),
+    .min(1, "Minimal 1 berkas harus dipilih.")
+    .max(15, "Maksimal 15 berkas per batch unggah."),
 });
 
 function hasPermissionForTarget(
