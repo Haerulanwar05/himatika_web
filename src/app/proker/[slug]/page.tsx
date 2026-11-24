@@ -196,7 +196,7 @@ export default async function ProkerDetailPage({
                       className="p-4 bg-[#0c0c0e] border border-white/5 rounded flex items-start gap-3"
                     >
                       <span className="w-6 h-6 rounded bg-blue-600/20 text-blue-400 font-mono text-xs flex items-center justify-center shrink-0 mt-0.5">
-                        0{idx + 1}
+                        {String(idx + 1).padStart(2, "0")}
                       </span>
                       <p className="text-sm text-zinc-300 leading-relaxed">
                         {item}

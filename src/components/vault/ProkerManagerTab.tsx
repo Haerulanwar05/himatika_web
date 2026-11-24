@@ -30,6 +30,17 @@ function slugifyProkerTitle(input: string): string {
     .slice(0, 80);
 }
 
+function splitPastedObjectiveLines(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(/^\s*(?:[-*•–]+|\d+[.)])\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
 interface ProkerManagerTabProps {
   prokers: WorkProgramRow[];
   canEditProker: boolean;
@@ -75,6 +86,8 @@ export function ProkerManagerTab({
   const [slugInput, setSlugInput] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [shortDescInput, setShortDescInput] = useState("");
+  const [fullContentInput, setFullContentInput] = useState("");
+  const [objectivesDraft, setObjectivesDraft] = useState<string[]>([""]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverObjectUrl, setCoverObjectUrl] = useState<string | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
@@ -119,6 +132,13 @@ export function ProkerManagerTab({
     setSlugInput(proker.slug);
     setSlugManuallyEdited(true);
     setShortDescInput(proker.short_desc ?? "");
+    setFullContentInput(proker.full_content ?? "");
+    const existingObjectives = (proker.objectives ?? [])
+      .map((item) => item.trim())
+      .filter(Boolean);
+    setObjectivesDraft(
+      existingObjectives.length > 0 ? existingObjectives : [""]
+    );
     setModalError(null);
     setEditing(proker);
   };
@@ -132,6 +152,8 @@ export function ProkerManagerTab({
     setSlugInput("");
     setSlugManuallyEdited(false);
     setShortDescInput("");
+    setFullContentInput("");
+    setObjectivesDraft([""]);
     setModalError(null);
     setEditing({
       id: "",
@@ -189,6 +211,14 @@ export function ProkerManagerTab({
     formData.set("title", cleanedTitle);
     formData.set("slug", cleanedSlug);
     formData.set("short_desc", shortDesc);
+    formData.set("full_content", fullContentInput.trim());
+    formData.set(
+      "objectives_text",
+      objectivesDraft
+        .map((item) => item.replace(/\s*\r?\n\s*/g, " ").trim())
+        .filter(Boolean)
+        .join("\n")
+    );
     formData.set("remove_cover", String(coverRemoved && !coverFile));
     formData.set("existing_gallery_json", JSON.stringify(galleryDraft));
     formData.delete("cover_file");
@@ -263,6 +293,8 @@ export function ProkerManagerTab({
       setCoverRemoved(false);
       setNewGalleryFiles([]);
       setGalleryDraft([]);
+      setFullContentInput("");
+      setObjectivesDraft([""]);
       refreshInBackground();
     } catch (err) {
       setModalError(
@@ -597,27 +629,108 @@ export function ProkerManagerTab({
               </div>
 
               <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  DESKRIPSI LENGKAP (PISAH PARAGRAF DENGAN BARIS KOSONG)
-                </label>
+                <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                  <label className="text-secondary">
+                    DESKRIPSI LENGKAP
+                  </label>
+                  <span className="text-muted">
+                    {fullContentInput.trim()
+                      ? fullContentInput
+                          .trim()
+                          .split(/\n\s*\n/)
+                          .map((p) => p.trim())
+                          .filter(Boolean).length
+                      : 0}{" "}
+                    PARAGRAF (ENTER 2X ANTAR PARAGRAF)
+                  </span>
+                </div>
                 <textarea
                   name="full_content"
                   rows={4}
-                  defaultValue={editing.full_content ?? ""}
+                  value={fullContentInput}
+                  onChange={(e) => setFullContentInput(e.target.value)}
+                  placeholder="Ceritakan latar belakang dan gambaran lengkap kegiatan. Tekan Enter 2 kali untuk membuat paragraf baru."
                   className="w-full bg-canvas border border-hairline px-3 py-2 font-sans text-xs text-main outline-none"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  TUJUAN KEGIATAN (1 POIN PER BARIS)
-                </label>
-                <textarea
-                  name="objectives_text"
-                  rows={3}
-                  defaultValue={(editing.objectives ?? []).join("\n")}
-                  className="w-full bg-canvas border border-hairline px-3 py-2 font-sans text-xs text-main outline-none"
-                />
+              <div className="space-y-2.5 border border-hairline bg-canvas/50 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-mono text-[11px] text-blue-400 uppercase tracking-wider block">
+                      TUJUAN &amp; TARGET KEGIATAN (
+                      {objectivesDraft.filter((o) => o.trim().length > 0).length} POIN)
+                    </span>
+                    <span className="font-mono text-[10px] text-muted">
+                      Isi 1 tujuan per kotak, atau tempel daftar beberapa baris langsung untuk pecah otomatis.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setObjectivesDraft((prev) => [...prev, ""])}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-500/40 bg-blue-500/10 hover:bg-blue-600 text-blue-400 hover:text-white font-mono text-[11px] transition-colors cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>TAMBAH POIN</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {objectivesDraft.map((objective, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2"
+                    >
+                      <span className="w-7 h-9 shrink-0 border border-hairline bg-surface flex items-center justify-center font-mono text-[11px] text-blue-400">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <textarea
+                        rows={2}
+                        value={objective}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setObjectivesDraft((prev) =>
+                            prev.map((item, i) => (i === idx ? val : item))
+                          );
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          if (!/\r?\n/.test(pasted)) return;
+                          const lines = splitPastedObjectiveLines(pasted);
+                          if (lines.length <= 1) return;
+                          e.preventDefault();
+                          setObjectivesDraft((prev) => {
+                            const next = [...prev];
+                            if (!next[idx]?.trim()) {
+                              next.splice(idx, 1, ...lines);
+                            } else {
+                              next.splice(idx + 1, 0, ...lines);
+                            }
+                            return next;
+                          });
+                        }}
+                        placeholder={`Poin tujuan kegiatan ke-${idx + 1}...`}
+                        className="flex-1 bg-canvas border border-hairline px-3 py-2 font-sans text-xs text-main outline-none focus:border-blue-500/60"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setObjectivesDraft((prev) =>
+                            prev.length <= 1
+                              ? [""]
+                              : prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                        aria-label={`Hapus tujuan ke-${idx + 1}`}
+                        title="Hapus poin"
+                        className="p-2.5 border border-hairline hover:border-red-500/50 bg-canvas text-muted hover:text-red-400 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 border border-hairline bg-canvas/50">
