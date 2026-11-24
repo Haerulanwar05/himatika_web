@@ -74,6 +74,7 @@ export function ProkerManagerTab({
   const [titleInput, setTitleInput] = useState("");
   const [slugInput, setSlugInput] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [shortDescInput, setShortDescInput] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverObjectUrl, setCoverObjectUrl] = useState<string | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
@@ -117,6 +118,7 @@ export function ProkerManagerTab({
     setTitleInput(proker.title);
     setSlugInput(proker.slug);
     setSlugManuallyEdited(true);
+    setShortDescInput(proker.short_desc ?? "");
     setModalError(null);
     setEditing(proker);
   };
@@ -129,6 +131,7 @@ export function ProkerManagerTab({
     setTitleInput("");
     setSlugInput("");
     setSlugManuallyEdited(false);
+    setShortDescInput("");
     setModalError(null);
     setEditing({
       id: "",
@@ -160,10 +163,10 @@ export function ProkerManagerTab({
     const formData = new FormData(e.currentTarget);
     const cleanedSlug = slugInput.trim().replace(/^-+|-+$/g, "");
     const cleanedTitle = titleInput.trim();
-    const shortDesc = String(formData.get("short_desc") ?? "").trim();
+    const shortDesc = shortDescInput.trim();
 
-    if (cleanedTitle.length < 3) {
-      setModalError("Judul program kerja minimal 3 karakter.");
+    if (cleanedTitle.length < 3 || cleanedTitle.length > 160) {
+      setModalError("Judul program kerja harus antara 3 sampai 160 karakter.");
       return;
     }
     if (cleanedSlug.length < 3 || !/^[a-z0-9-]+$/.test(cleanedSlug)) {
@@ -176,9 +179,16 @@ export function ProkerManagerTab({
       setModalError("Ringkasan singkat minimal 10 karakter.");
       return;
     }
+    if (shortDesc.length > 400) {
+      setModalError(
+        `Ringkasan singkat maksimal 400 karakter (saat ini ${shortDesc.length} karakter). Pindahkan penjelasan panjang ke kolom Deskripsi Lengkap.`
+      );
+      return;
+    }
 
     formData.set("title", cleanedTitle);
     formData.set("slug", cleanedSlug);
+    formData.set("short_desc", shortDesc);
     formData.set("remove_cover", String(coverRemoved && !coverFile));
     formData.set("existing_gallery_json", JSON.stringify(galleryDraft));
     formData.delete("cover_file");
@@ -557,15 +567,32 @@ export function ProkerManagerTab({
               </div>
 
               <div className="space-y-1">
-                <label className="font-mono text-[11px] text-secondary block">
-                  RINGKASAN SINGKAT
-                </label>
+                <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                  <label className="text-secondary">
+                    RINGKASAN SINGKAT
+                  </label>
+                  <span
+                    className={
+                      shortDescInput.trim().length > 400
+                        ? "text-red-400 font-semibold"
+                        : "text-muted"
+                    }
+                  >
+                    {shortDescInput.trim().length} / 400 KARAKTER
+                  </span>
+                </div>
                 <textarea
                   name="short_desc"
                   required
                   rows={2}
-                  defaultValue={editing.short_desc ?? ""}
-                  className="w-full bg-canvas border border-hairline px-3 py-2 font-sans text-xs text-main outline-none"
+                  value={shortDescInput}
+                  onChange={(e) => setShortDescInput(e.target.value)}
+                  placeholder="Cuplikan singkat 1-2 kalimat untuk kartu katalog. Teks panjang bisa ditaruh di Deskripsi Lengkap."
+                  className={`w-full bg-canvas border px-3 py-2 font-sans text-xs text-main outline-none ${
+                    shortDescInput.trim().length > 400
+                      ? "border-red-500/60 focus:border-red-500"
+                      : "border-hairline"
+                  }`}
                 />
               </div>
 

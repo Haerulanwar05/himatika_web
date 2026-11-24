@@ -20,8 +20,16 @@ import type {
 
 const prokerSchema = z.object({
   id: z.string().uuid().optional().or(z.literal("")),
-  highlight_number: z.string().trim().max(10).optional(),
-  title: z.string().trim().min(3, "Judul program kerja minimal 3 karakter.").max(160),
+  highlight_number: z
+    .string()
+    .trim()
+    .max(10, "Nomor urut maksimal 10 karakter.")
+    .optional(),
+  title: z
+    .string()
+    .trim()
+    .min(3, "Judul program kerja minimal 3 karakter.")
+    .max(160, "Judul program kerja maksimal 160 karakter."),
   slug: z
     .string()
     .trim()
@@ -29,10 +37,29 @@ const prokerSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug hanya boleh berisi huruf kecil, angka, dan tanda hubung (-)."),
   division_code: z.string().trim().min(2, "Pilih divisi penyelenggara."),
   status: z.enum(["upcoming", "ongoing", "completed"]),
-  execution_label: z.string().trim().min(2, "Jadwal pelaksanaan wajib diisi.").max(80),
-  location: z.string().trim().min(2, "Lokasi wajib diisi.").max(160),
-  target_audience: z.string().trim().min(2, "Sasaran peserta wajib diisi.").max(160),
-  short_desc: z.string().trim().min(10, "Ringkasan minimal 10 karakter.").max(400),
+  execution_label: z
+    .string()
+    .trim()
+    .min(2, "Jadwal pelaksanaan wajib diisi.")
+    .max(80, "Jadwal pelaksanaan maksimal 80 karakter."),
+  location: z
+    .string()
+    .trim()
+    .min(2, "Lokasi wajib diisi.")
+    .max(160, "Lokasi kegiatan maksimal 160 karakter."),
+  target_audience: z
+    .string()
+    .trim()
+    .min(2, "Sasaran peserta wajib diisi.")
+    .max(160, "Sasaran peserta maksimal 160 karakter."),
+  short_desc: z
+    .string()
+    .trim()
+    .min(10, "Ringkasan singkat minimal 10 karakter.")
+    .max(
+      400,
+      "Ringkasan singkat maksimal 400 karakter. Pindahkan penjelasan panjang ke kolom Deskripsi Lengkap."
+    ),
   full_content: z.string().trim().optional(),
   objectives_text: z.string().trim().optional(),
   registration_link: z
@@ -41,9 +68,21 @@ const prokerSchema = z.object({
     .url("Link pendaftaran harus berupa URL valid (https://...)")
     .optional()
     .or(z.literal("")),
-  contact_name: z.string().trim().max(100).optional(),
-  contact_role: z.string().trim().max(100).optional(),
-  contact_phone: z.string().trim().max(160).optional(),
+  contact_name: z
+    .string()
+    .trim()
+    .max(100, "Nama narahubung maksimal 100 karakter.")
+    .optional(),
+  contact_role: z
+    .string()
+    .trim()
+    .max(100, "Peran / jabatan narahubung maksimal 100 karakter.")
+    .optional(),
+  contact_phone: z
+    .string()
+    .trim()
+    .max(160, "No. WA / Link WA.me maksimal 160 karakter.")
+    .optional(),
   existing_cover_url: z.string().trim().optional(),
   existing_gallery_json: z.string().trim().optional(),
   uploaded_cover_url: z.string().trim().optional(),
